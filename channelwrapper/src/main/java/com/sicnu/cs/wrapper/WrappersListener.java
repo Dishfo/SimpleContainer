@@ -10,9 +10,9 @@ public interface WrappersListener {
 
     void onWrapperCreated(ChannelWrapper wrapper);
 
-    void onWrapperRead(ChannelWrapper wrapper, ByteBuffer[] data);
+    void onWrapperRead(ChannelWrapper wrapper, ByteBuffer[] data,Exception e);
 
-    void onWrapperWrite(ChannelWrapper wrapper);
+    void onWrapperWrite(ChannelWrapper wrapper,Exception e);
 
 
 }

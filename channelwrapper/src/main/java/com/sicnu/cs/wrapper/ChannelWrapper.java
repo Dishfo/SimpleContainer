@@ -1,34 +1,16 @@
 package com.sicnu.cs.wrapper;
 
-import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 
 public interface ChannelWrapper extends ReadableByteChannel,
         WritableByteChannel{
 
-    /**
-     * life state
-     */
-    int CREATED=0x1;
-    int CONNECTING=0x2;
-    int OPENED=0X3;
-    int CLOSING=0X4;
-    int CLOSED=0X5;
+    int OPENED=1;
+    int CLOSING=2;
+    int CLOSED=3;
 
-
-    /**
-     * work state
-     */
-    int UNAVAILABLE=0x11;
-    int IDLE=0x12;
-    int READING=0x13;
-    int WRITTING=0x14;
-
-
-    int getLifeState();
-
-    int getWorkState();
 
     void closeNow();
 
@@ -46,7 +28,7 @@ public interface ChannelWrapper extends ReadableByteChannel,
      * put buffer into a channel
      * this method should clear buffer queue;
      */
-    void write()throws ClosedChannelException;
+    void write()throws WriteOpException;
 
     /**
      *
@@ -59,6 +41,7 @@ public interface ChannelWrapper extends ReadableByteChannel,
     void cancleKey();
     void attach(Object obj);
 
+
     SelectionKey getKey();
 
 
@@ -68,16 +51,14 @@ public interface ChannelWrapper extends ReadableByteChannel,
      */
     boolean hasWrite();
 
-    boolean forbidWrite();
-
-    boolean forbidRead();
-
-    void connect() throws IOException;
-
+    InetSocketAddress getRemote();
+    InetSocketAddress getHost();
     SelectionKey register(Selector selector,int ops);
     int interestOps();
     int interestOps(int ops);
     int addOps(int ops);
     int removeOps(int ops);
 
+    void setAttributes(String name,Object val);
+    Object getAttribute(String name);
 }

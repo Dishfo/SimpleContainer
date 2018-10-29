@@ -4,7 +4,12 @@ import java.io.IOException;
 
 public class OperateException extends IOException {
 
+
+
+
     public ChannelWrapper source;
+
+
 
     public OperateException(String message, ChannelWrapper source) {
         super(message);

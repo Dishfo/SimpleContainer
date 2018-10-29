@@ -11,9 +11,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -22,38 +22,40 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SocketChannelWrapper implements ChannelWrapper{
 
     private Logger logger = LogManager.getLogger(getClass().getName());
-    private HttpConnection connection;
 
     private AtomicInteger lifestate;
-    private AtomicInteger workstate;
     private SocketChannel channel;
     private SelectionKey key;
+    private HashMap<String,Object> attributies;
 
-    private AtomicBoolean iswritting=new AtomicBoolean(false);
+
+
     private LinkedBlockingQueue<ByteBuffer> towrite;
+    private ByteBuffer posion;
 
     SocketChannelWrapper(SocketChannel channel) {
         this.channel = channel;
-        lifestate = new AtomicInteger(CREATED);
-        workstate = new AtomicInteger(UNAVAILABLE);
+        if (!channel.isOpen()||!channel.isConnected()){
+            throw new IllegalArgumentException("the channel is invalid state");
+        }
+        attributies=new HashMap<>();
+        lifestate=new AtomicInteger(OPENED);
         towrite = new LinkedBlockingQueue<>();
+        posion=ByteBuffer.allocate(44);
     }
 
-    public int getLifeState() {
-        return lifestate.get();
-    }
 
-    public int getWorkState() {
-        return workstate.get();
-    }
 
     public void closeNow() {
+        if (!lifestate.compareAndSet(OPENED,CLOSED)){
+            return;
+        }
+
         key.cancel();
         try {
             channel.close();
-        } catch (IOException e) {
-            logger.info("error when closeNoW()");
-        }
+        } catch (IOException ignored) {}
+
     }
 
     private void wakeupSelector(){
@@ -79,32 +81,29 @@ public class SocketChannelWrapper implements ChannelWrapper{
     }
 
 
-    public void write() throws ClosedChannelException {
-        for (ByteBuffer buffer : towrite) {
-            try {
-                channel.write(buffer);
-            } catch (IOException e) {
-                if (e instanceof ClosedChannelException) {
-                    workstate.set(UNAVAILABLE);
-                    throw (ClosedChannelException) e;
-                }
-            } finally {
-                try {
-                    channel.socket().getOutputStream().flush();
-                } catch (IOException e) {
-                    logger.warn("write go wrong ");
-                    closeNow();
-                }
+    public void write() throws WriteOpException {
+        ByteBuffer buffer;
+        do {
+            buffer=towrite.poll();
 
+            if (buffer!=null){
+                try {
+                    channel.write(buffer);
+                } catch (IOException e) {
+                    if (e instanceof ClosedChannelException){
+                        throw new WriteOpException("",this,WriteOpException.CLOSE_CONN);
+                    }else {
+                        throw new WriteOpException("",this,WriteOpException.IO_ERROR);
+                    }
+                }
             }
-        }
-        towrite.clear();
+        }while (buffer!=null);
         removeOps(SelectionKey.OP_WRITE);
     }
 
     public ByteBuffer[] read() throws ReadOpException {
         List<ByteBuffer> list = new ArrayList<>();
-        int len = 0;
+        int len;
         ByteBuffer buffer = getBuffer();
         try {
             while ((len = channel.read(buffer)) > 0) {
@@ -113,13 +112,15 @@ public class SocketChannelWrapper implements ChannelWrapper{
                 buffer = getBuffer();
             }
             if (len == -1) {
-                throw new ReadOpException("", this);
+                throw new ReadOpException("", this,ReadOpException.PEERCLOSE);
+            }else if (list.size()==0){
+                throw new ReadOpException("", this,ReadOpException.NO_DATA);
             }
         } catch (IOException e) {
-            throw new ReadOpException("", this);
+            if (e instanceof ReadOpException)
+                throw (ReadOpException) e;
+            throw new ReadOpException("",this,ReadOpException.UN_KNOW);
         }
-
-
         return list.toArray(new ByteBuffer[]{});
     }
 
@@ -147,16 +148,24 @@ public class SocketChannelWrapper implements ChannelWrapper{
         return !towrite.isEmpty();
     }
 
-    public boolean forbidWrite() {
-        throw new UnsupportedOperationException("can't implment forbidWrite");
+    @Override
+    public InetSocketAddress getRemote() {
+        try {
+            return (InetSocketAddress)
+                    channel.getRemoteAddress();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
-    public boolean forbidRead() {
-        throw new UnsupportedOperationException("can't implment forbidRead");
-    }
-
-    public void connect() throws IOException {
-        this.lifestate.set(OPENED);
+    @Override
+    public InetSocketAddress getHost() {
+        try {
+            return (InetSocketAddress)
+                    channel.getLocalAddress();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     public SelectionKey register(Selector selector, int ops) {
@@ -186,6 +195,16 @@ public class SocketChannelWrapper implements ChannelWrapper{
         return interestOps(key.interestOps() & (~ops));
     }
 
+    @Override
+    public void setAttributes(String name, Object val) {
+        attributies.put(name,val);
+    }
+
+    @Override
+    public Object getAttribute(String name) {
+        return attributies.get(name);
+    }
+
     public int read(ByteBuffer dst) throws IOException {
         return channel.read(dst);
     }
@@ -204,28 +223,31 @@ public class SocketChannelWrapper implements ChannelWrapper{
     }
 
     public boolean isOpen() {
-        return workstate.get() == OPENED;
-    }
-
-    public void close() throws IOException {
-        closeNow();
-    }
-
-    public HttpConnection getConnection() {
-        return connection;
-    }
-
-    public void setConnection(HttpConnection connection) {
-        this.connection = connection;
-    }
-
-    public int getLocalPort() {
-        return channel.socket().getLocalPort();
-    }
-
-    public InetSocketAddress getRemote() {
-        return (InetSocketAddress) channel.socket().getRemoteSocketAddress();
+        return lifestate.get()==OPENED;
     }
 
 
+
+    public void close(){
+        if (!lifestate.compareAndSet(OPENED,CLOSING)){
+            return;
+        }
+
+        towrite.add(posion);
+        ByteBuffer buffer=null;
+        while (buffer!=posion){
+            buffer=towrite.poll();
+            try {
+                write(buffer);
+            } catch (IOException e) {
+                break;
+            }
+        }
+
+        key.cancel();
+        try {
+            channel.close();
+        } catch (IOException ignored) {}
+        lifestate.set(CLOSED);
+    }
 }

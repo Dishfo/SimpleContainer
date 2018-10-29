@@ -1,6 +1,7 @@
-package com.cs.sicnu.core.protocol;
+package com.cs.sicnu.core.utils;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 
 public interface ByteAcess {
 
@@ -14,6 +15,6 @@ public interface ByteAcess {
     int find(byte[] str,int offset);
     int getBound();
 
-    String getString(int begin,int end);
+    String getString(int begin, int end, Charset charset);
     byte[] getRangeBytes(int offset,int len);
 }

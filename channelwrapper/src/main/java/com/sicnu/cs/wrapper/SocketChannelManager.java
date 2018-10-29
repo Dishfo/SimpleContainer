@@ -5,7 +5,10 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -25,6 +28,22 @@ public class SocketChannelManager implements ChannelMananger{
 
     public void init(){
         try {
+            listener=new WrappersListener() {
+                @Override
+                public void onWrapperCreated(ChannelWrapper wrapper) {
+
+                }
+
+                @Override
+                public void onWrapperRead(ChannelWrapper wrapper, ByteBuffer[] data, Exception e) {
+
+                }
+
+                @Override
+                public void onWrapperWrite(ChannelWrapper wrapper, Exception e) {
+
+                }
+            };
             serverChannel.configureBlocking(false);
             serverChannel.register(selector,SelectionKey.OP_ACCEPT);
         } catch (IOException e) {
@@ -62,11 +81,6 @@ public class SocketChannelManager implements ChannelMananger{
     @Override
     public void setWrapLinstener(WrappersListener listener) {
         this.listener=listener;
-    }
-
-
-    private void processData(ByteBuffer[] data,SelectionKey key){
-        logger.debug("use to process data in manager"+data.length+key.toString());
     }
 
     private void resetLatch(int count){
@@ -149,10 +163,10 @@ public class SocketChannelManager implements ChannelMananger{
                         ChannelWrapper wrapper_w= (ChannelWrapper) key.attachment();
                         if (wrapper_w!=null){
                             try {
-                                listener.onWrapperWrite(wrapper_w);
                                 wrapper_w.write();
-                            } catch (ClosedChannelException e) {
-                                wrapper_w.closeNow();
+                                listener.onWrapperWrite(wrapper_w,null);
+                            } catch (WriteOpException e) {
+                                listener.onWrapperWrite(wrapper_w,e);
                             }
                         }
                         break;
@@ -161,13 +175,16 @@ public class SocketChannelManager implements ChannelMananger{
                         if (wrapper_r!=null){
                             try {
                                 ByteBuffer[] data=wrapper_r.read();
-                                processData(data,key);
                                 if (listener!=null){
-                                    listener.onWrapperRead(wrapper_r,data);
+                                    listener.onWrapperRead(wrapper_r,data,null);
                                 }
                             } catch (ReadOpException e) {
-                                logger.warn(e.getMessage());
-                                try { wrapper_r.close(); } catch (IOException ignored) { }
+                                listener.onWrapperRead(wrapper_r,null,e);
+                                if (e.getOccur()==ReadOpException.PEERCLOSE){
+                                    try {
+                                        wrapper_r.close();
+                                    } catch (IOException ignored) {}
+                                }
                             }
                         }else {
                             key.cancel();
@@ -196,9 +213,15 @@ public class SocketChannelManager implements ChannelMananger{
 
     public void stop(){
         executor.shutdown();
-        try {
-            serverChannel.close();
-            selector.close();
-        } catch (IOException ignored) {}
+
+        Set<SelectionKey> keys=selector.keys();
+        for (SelectionKey key:keys){
+            Object o=key.attachment();
+            if (o instanceof ChannelWrapper){
+                try {
+                    ((ChannelWrapper) o).close();
+                } catch (IOException ignored) {}
+            }
+        }
     }
 }

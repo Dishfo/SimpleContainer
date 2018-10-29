@@ -5,39 +5,26 @@ import java.net.InetSocketAddress;
 /**
  *描述一条可用的tcp链接
  */
-public abstract class Connection {
+public abstract class Connection<I,O> {
 
-    public static final String HTTP_SCHEMA="http";
-    public static final String HTTPS_SCHEMA="https";
+    public abstract void receice(I data);
+    public abstract void receice(I[] data);
 
-    private InetSocketAddress remote;
-    private int loadPort;
 
-    private String schema;
+    public abstract void output(O data);
+    public abstract void output(O[] data);
 
-    public InetSocketAddress getRemote() {
-        return remote;
-    }
+    protected String schema;
 
-    public void setRemote(InetSocketAddress remote) {
-        this.remote = remote;
-    }
+    public abstract InetSocketAddress getHost();
 
-    public int getLoadPort() {
-        return loadPort;
-    }
 
-    public void setLoadPort(int loadPort) {
-        this.loadPort = loadPort;
-    }
+    public abstract InetSocketAddress getRemote();
 
-    public String getSchema() {
+    public abstract void close();
+
+    public String  getSchema(){
         return schema;
     }
 
-    public void setSchema(String schema) {
-        this.schema = schema;
-    }
-
-    public abstract void close();
 }

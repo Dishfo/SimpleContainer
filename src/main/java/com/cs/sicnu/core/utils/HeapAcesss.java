@@ -1,30 +1,26 @@
-package com.cs.sicnu.core.protocol;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+package com.cs.sicnu.core.utils;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 
 public class HeapAcesss implements ByteAcess {
-
-    private Logger logger= LogManager.getLogger(getClass().getName());
 
     private static final int MAX_SIZE=1024*1024*8;
 
     private byte[] buf;
 
-    private int ost =0;
+    private int ost;
 
-    private int limit=0;
-    private int capity=0;
+    private int limit;
+    private int capity;
 
     public HeapAcesss(){
         this(MAX_SIZE);
     }
 
-    public HeapAcesss(int capity){
+    private HeapAcesss(int capity){
         this.capity=capity;
-        limit= ost =0;
+        limit=ost=0;
         buf=new byte[capity];
     }
 
@@ -97,7 +93,7 @@ public class HeapAcesss implements ByteAcess {
 
     /**
      * 返回当前可用的缓存长度
-     * @return
+     * @return 返回当前可用的缓存长度
      */
     @Override
     public int getBound() {
@@ -105,8 +101,8 @@ public class HeapAcesss implements ByteAcess {
     }
 
     @Override
-    public String getString(int begin, int end) {
-        return new String(buf,begin+ost,(end-begin));
+    public String getString(int begin, int end, Charset charset) {
+        return new String(buf,begin+ost,(end-begin),charset);
     }
 
     @Override
