@@ -2,6 +2,7 @@ package com.sicnu.cs.component;
 
 import com.sicnu.cs.wrapper.ChannelMananger;
 import com.sicnu.cs.wrapper.SocketChannelManager;
+import com.sicnu.cs.wrapper.WrappersListener;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,14 +41,14 @@ public class MessageListener {
             e.printStackTrace();
         }
         mananger = new SocketChannelManager(serverSocketChannel, selector);
+        mananger.init();
     }
 
     public void startListen() {
-        mananger.init();
+
         if (listened.compareAndSet(false, true)) {
             new Thread(new ListenTask())
                     .start();
-
             waitEndCmd();
         }
     }
@@ -76,7 +77,10 @@ public class MessageListener {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    public void setChannelListener(WrappersListener wrappersListener){
+        mananger.setWrapLinstener(wrappersListener);
     }
 
      private void stop() {

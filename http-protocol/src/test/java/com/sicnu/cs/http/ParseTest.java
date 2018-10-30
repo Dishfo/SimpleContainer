@@ -40,42 +40,24 @@ public class ParseTest {
             }
         });
 
-        ByteBuffer[] reqs=getRequest("/home/dishfo/logs/request--1538556552050");
-        for (ByteBuffer b:reqs){
+
+        parseFromDisK(parser,"/home/dishfo/logs/request--1538556552050");
+
+        parseFromDisK(parser,"/home/dishfo/logs/request--2015110231");
+
+        parseFromDisK(parser,"/home/dishfo/logs/ssmtemp.log.log");
+
+        parseFromDisK(parser,"/home/dishfo/logs/request--1538556552050");
+
+        parseFromDisK(parser,"/home/dishfo/logs/request--1538556552050");
+    }
+
+
+    public void parseFromDisK(HttpParser parser,String path){
+        ByteBuffer[] buffers=getRequest(path);
+        for (ByteBuffer b:buffers){
             parser.resolve(b);
         }
-
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-         reqs=getRequest("/home/dishfo/logs/request--2015110231");
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
-
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
-
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
-        reqs=getRequest("/home/dishfo/logs/request--1538556552050");
-        for (ByteBuffer b:reqs){
-            parser.resolve(b);
-        }
-
     }
 
     /**

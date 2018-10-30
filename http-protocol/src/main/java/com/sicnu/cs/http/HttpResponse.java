@@ -30,7 +30,7 @@ public interface HttpResponse {
 
     boolean isCommitted();
 
-    void setHeadEncoding();
+    void setHeadEncoding(String encoding);
 
     void outPut() throws IOException;
 

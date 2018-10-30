@@ -1,8 +1,10 @@
 package com.sicnu.cs.http;
 
 import com.cs.sicnu.core.protocol.Connection;
+import com.cs.sicnu.core.protocol.Http11Constant;
 import com.sicnu.cs.wrapper.ChannelWrapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -31,10 +33,9 @@ public class HttpConnection extends Connection<ByteBuffer,ByteBuffer> {
         }
     }
 
-
     @Override
     public void output(ByteBuffer data) {
-
+        wrapper.toWrite(data);
     }
 
     @Override
@@ -66,11 +67,32 @@ public class HttpConnection extends Connection<ByteBuffer,ByteBuffer> {
     }
 
     private HttpResponse createResponse(HttpRequest request){
-        return null;
+        MappedHttpResponse response=new MappedHttpResponse(
+                new InteralByteArrayOutPutStream(Http11Constant.CONTENT_MAX_SIZE)
+        );
+
+        if (!Http11Constant.supportVersion.contains(request.getHTTPVersion())){
+            throw new IllegalArgumentException("don't support this http version");
+        }
+        response.setVersion(request.getHTTPVersion());
+        return response;
+    }
+
+    private class InteralByteArrayOutPutStream extends ByteArrayOutputStream{
+
+
+        InteralByteArrayOutPutStream(int size) {
+            super(size);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            super.flush();
+            output(ByteBuffer.wrap(toByteArray()));
+        }
     }
 
     private class HttpParseListenerImpl implements HttpParseListener{
-
         @Override
         public void onStartParse(HttpRequest request) {
 
@@ -83,7 +105,6 @@ public class HttpConnection extends Connection<ByteBuffer,ByteBuffer> {
 
         @Override
         public void onCompete(HttpRequest request) {
-
             if (handler!=null){
                 handler.handleRequset(HttpConnection.this,
                         request,
@@ -92,3 +113,6 @@ public class HttpConnection extends Connection<ByteBuffer,ByteBuffer> {
         }
     }
 }
+
+
+

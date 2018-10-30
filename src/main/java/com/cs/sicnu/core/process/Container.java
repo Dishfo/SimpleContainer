@@ -7,14 +7,18 @@ package com.cs.sicnu.core.process;
  */
 public interface Container {
 
-    public final static int created=0x1;
-    public final static int initing=0x2;
-    public final static int inited=0x3;
-    public final static int starting=0x4;
-    public final static int started=0x5;
-    public final static int running=0x6;
-    public final static int stopping=0x7;
-    public final static int stopped=0x8;
+    int created=0x1;
+    int initing=0x2;
+    int inited=0x3;
+    int starting=0x4;
+    int started=0x5;
+    int running=0x6;
+    int stopping=0x7;
+    int stopped=0x8;
+
+    int initfail=0x15;
+    int startfail=0x16;
+    int stopfail=0x17;
 
     void init();
 

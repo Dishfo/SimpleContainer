@@ -4,7 +4,6 @@ import com.cs.sicnu.core.protocol.Http11Constant;
 import com.cs.sicnu.core.protocol.HttpHeadConstant;
 import com.cs.sicnu.core.utils.ByteAcess;
 import com.cs.sicnu.core.utils.HeapAcesss;
-import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -55,19 +54,25 @@ public class HttpParser {
                     line = getLine();
                 if (line == null){
                     setException(ParseType.no_http);
+                    byteAcess.clear();
                     onBufferAll();
+                }else {
+                    headline=line;
+                    state++;
                 }
-                headline=line;
-                state++;
+
             case HEADLINE:
-                request=new HttpRequest();
-                parseHeadLine(headline);
-                listener.onStartParse(request);
+                if (state==HEADLINE){
+                    request=new HttpRequest();
+                    parseHeadLine(headline);
+                    listener.onStartParse(request);
+                }
             case HEAD:
                 while (state==HEAD){
                     line=getLine();
                     if (line==null){
                         onBufferAll();
+                        break;
                     }
                     parseHead(line);
                 }
@@ -124,7 +129,7 @@ public class HttpParser {
         state++;
     }
 
-    private static final String head_split=": ";
+
     private void parseHead(String line){
 
         if (line.equals("")){
@@ -134,7 +139,7 @@ public class HttpParser {
             return;
         }
 
-        int split=line.indexOf(head_split);
+        int split=line.indexOf(HttpHeadConstant.head_split);
         if (split==-1){
             setException(ParseType.head_format);
         }else {
@@ -147,7 +152,7 @@ public class HttpParser {
                     setException(ParseType.head_format);
                 }
             }
-            request.setHeader(name,value);
+            request.setHeader(name.toLowerCase(),value);
         }
     }
 
@@ -170,7 +175,7 @@ public class HttpParser {
 
         cur=0;
         int bound=byteAcess.getBound();
-        byte[] tmp=null;
+        byte[] tmp;
         if (bound>=(all-load)){
             tmp=byteAcess.getRangeBytes(0,all-load);
             System.arraycopy(tmp,0,cache,load,all-load);
@@ -213,6 +218,6 @@ public class HttpParser {
     private void clearException() {
         exception = null;
         state = NONE;
-        lined=-2;
+
     }
 }

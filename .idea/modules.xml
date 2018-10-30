@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/channelComponent/channelComponent.iml" filepath="$PROJECT_DIR$/channelComponent/channelComponent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/channelwrapper/channelwrapper.iml" filepath="$PROJECT_DIR$/channelwrapper/channelwrapper.iml" />
+      <module fileurl="file://$PROJECT_DIR$/http-protocol/httpprotocol.iml" filepath="$PROJECT_DIR$/http-protocol/httpprotocol.iml" />
+      <module fileurl="file://$PROJECT_DIR$/socketchannel.iml" filepath="$PROJECT_DIR$/socketchannel.iml" />
+    </modules>
+  </component>
+</project>

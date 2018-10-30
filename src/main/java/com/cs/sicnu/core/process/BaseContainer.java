@@ -10,13 +10,37 @@ public abstract class BaseContainer implements Container {
 
     @Override
     public void init() {
-        lifestate=initing;
-        initInteral();
-        Container[] childs=getChilds();
-        for (Container c:childs){
-            c.init();
+        if (lifestate>=initing){
+            throw new IllegalArgumentException("the containe has inited or is initing");
+        }else {
+            lifestate=initing;
+            try {
+                initInteral();
+            }catch (Throwable throwable){
+                lifestate=initfail;
+                return;
+            }
+
+            if (lifestate==initfail){
+                return;
+            }
+
+            for (Container c:children){
+                try {
+                    c.init();
+                    if (c.getLifeState()!=inited){
+                        lifestate=initfail;
+                        return;
+                    }
+                }catch (Throwable t){
+                    if (c.getLifeState()!=inited){
+                        lifestate=initfail;
+                        return;
+                    }
+                }
+            }
+            lifestate=inited;
         }
-        lifestate=inited;
     }
 
     protected void initInteral(){
@@ -33,24 +57,69 @@ public abstract class BaseContainer implements Container {
 
     @Override
     public void start() {
-        lifestate=starting;
-        startInteral();
-        Container[] childs=getChilds();
-        for (Container c:childs){
-            c.start();
+        if (lifestate>=starting){
+            throw new IllegalArgumentException("the containe has started or is stated");
         }
-        lifestate=started;
+        if (lifestate==created){
+            init();
+        }
+
+        if (lifestate==inited){
+            try {
+                startInteral();
+            }catch (Throwable t){
+                lifestate=startfail;
+                return;
+            }
+
+            if (lifestate==startfail){
+                return;
+            }
+
+            for (Container c:children){
+                try {
+                    c.start();
+                    if (c.getLifeState()!=started){
+                        lifestate=startfail;
+                        return;
+                    }
+                }catch (Throwable throwable){
+                    if (c.getLifeState()!=started){
+                        lifestate=startfail;
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (lifestate==started){
+            lifestate=running;
+        }
+
     }
 
 
     @Override
     public void stop() {
-        lifestate=stopping;
-        Container[] childs=getChilds();
-        for (Container c:childs){
-            c.stop();
+        if (lifestate>=stopping){
+            throw new IllegalArgumentException("the container has stop or is stopping");
         }
-        stopInteral();
+
+        lifestate=stopping;
+
+        for(Container c:children){
+            try {
+                c.stop();
+            }catch (Throwable ignored){}
+        }
+        try {
+            stopInteral();
+        }catch (Throwable throwable){
+            lifestate=stopfail;
+        }
+        if (lifestate==stopfail){
+            return;
+        }
         lifestate=stopped;
     }
 

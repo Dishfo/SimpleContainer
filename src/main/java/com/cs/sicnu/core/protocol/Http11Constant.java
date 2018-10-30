@@ -13,6 +13,10 @@ public class Http11Constant {
     public final static String trace_m="TRACE";
     public final static String connect_m="CONNECT";
 
+    public static final int CONTENT_MAX_SIZE=8*1024*1024;
+
+    public static Set<String> supportVersion = null;
+
     //common
     public static Set<String> suporrtMethods = null;
 
@@ -25,12 +29,20 @@ public class Http11Constant {
     public static Set<String> contentfield = null;
 
 
+
+
     static {
+        supportVersion=new HashSet<>();
         suporrtMethods=new HashSet<>();
         commonfiled=new HashSet<>();
         requestfiled=new HashSet<>();
         responsefiled=new HashSet<>();
         contentfield=new HashSet<>();
+    }
+
+    static {
+        supportVersion.add("HTTP/1.0");
+        supportVersion.add("HTTP/1.1");
     }
 
     static {
@@ -44,12 +56,12 @@ public class Http11Constant {
     }
 
     static {
-        contentfield.add("Cache-Control");
-        contentfield.add("Connection");
-        contentfield.add("Date");
-        contentfield.add("Pragma");
-        contentfield.add("Trailer");
-        contentfield.add("Transfer-Encoding");
+        contentfield.add("cache-control");
+        contentfield.add("connection");
+        contentfield.add("date");
+        contentfield.add("pragma");
+        contentfield.add("trailer");
+        contentfield.add("transfer-encoding");
         contentfield.add("Upgrade");
         contentfield.add("Warning");
     }

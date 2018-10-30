@@ -24,6 +24,11 @@ public final class StringUtils {
         return true;
     }
 
+
+    public static boolean isEmpty(String s){
+        return s==null||s.equals("");
+    }
+
     public static String convertToRegex(String s) {
         Objects.requireNonNull(s);
         StringBuilder builder = new StringBuilder();
