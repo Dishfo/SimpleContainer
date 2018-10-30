@@ -140,7 +140,6 @@ public class MappedHttpResponse implements HttpResponse {
 
             respStream.write(body);
             respStream.flush();
-
         }
     }
 }

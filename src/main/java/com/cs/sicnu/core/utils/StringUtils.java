@@ -1,5 +1,6 @@
 package com.cs.sicnu.core.utils;
 
+import java.io.File;
 import java.util.Objects;
 
 public final class StringUtils {
@@ -66,6 +67,33 @@ public final class StringUtils {
         }
 
         return res;
+    }
+
+
+    public static String getClassPath(String base,String classname){
+        Objects.requireNonNull(base);
+        Objects.requireNonNull(classname);
+        StringBuilder builder=new StringBuilder();
+        builder.append(base);
+        if (!base.endsWith(File.separator)){
+            builder.append(File.separator);
+        }
+
+
+        if (classname.endsWith(".class")){
+            int i=classname.lastIndexOf(".");
+            String s1=classname.substring(0,i);
+            String s2=classname.substring(i);
+            builder.append(s1.replaceAll("\\.","/"))
+                    .append(s2);
+
+        }else {
+            builder.append(classname.replaceAll("\\.","/"))
+                .append(".class");
+        }
+
+
+        return builder.toString();
     }
 
 }

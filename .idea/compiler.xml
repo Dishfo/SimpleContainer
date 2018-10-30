@@ -19,13 +19,16 @@
         <module name="channelComponent" />
         <module name="channelwrapper" />
         <module name="httpprotocol" />
+        <module name="servletimpl" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="channelComponent" target="8" />
+      <module name="channelcomponent" target="8" />
       <module name="channelwrapper" target="8" />
       <module name="httpprotocol" target="8" />
       <module name="servletImpl" target="8" />
+      <module name="servletimpl" target="8" />
       <module name="socketchannel" target="8" />
     </bytecodeTargetLevel>
   </component>

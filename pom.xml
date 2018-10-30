@@ -12,9 +12,10 @@
     <name>channel-main</name>
 
     <modules>
-        <module>channelComponent</module>
-        <module>channelwrapper</module>
+        <module>channel-component</module>
+        <module>channel-wrapper</module>
         <module>http-protocol</module>
+        <module>servlet-impl</module>
     </modules>
 
     <dependencies>
