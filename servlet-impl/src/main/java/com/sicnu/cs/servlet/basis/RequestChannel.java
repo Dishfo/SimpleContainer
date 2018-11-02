@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  */
 public interface RequestChannel {
+
     void through(HttpServletRequest request,
                  HttpServletResponse response);
 }

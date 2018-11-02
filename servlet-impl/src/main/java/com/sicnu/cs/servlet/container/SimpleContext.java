@@ -1,6 +1,9 @@
 package com.sicnu.cs.servlet.container;
 
-import com.cs.sicnu.core.process.Container;
+import com.sicnu.cs.servlet.basis.IteratorWrapper;
+import com.sicnu.cs.servlet.basis.RequestChannel;
+import com.sicnu.cs.servlet.basis.WebAppConstant;
+import com.sicnu.cs.servlet.http.ServletConfigFaced;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -8,59 +11,62 @@ import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpFilter;
+import javax.servlet.http.HttpServlet;
 import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Enumeration;
+import java.util.EventListener;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Collectors;
 
-public class SimpleContext extends BaseContext{
+public class SimpleContext extends BaseContext {
 
     private Logger logger = LogManager.getLogger(getClass().getName());
 
     private String contextPath;
     private String basePath;
 
-    private ConcurrentHashMap<String, Servlet> servlets;
+    private ConcurrentHashMap<String, SimpleServletWrapper> servlets;
     private ConcurrentHashMap<String, Object> attributies;
     private ConcurrentHashMap<String, String> initParameters;
-    private ConcurrentLinkedQueue<HttpFilter> filters;
+    private ConcurrentHashMap<String, ServletRegistration.Dynamic> registIntf;
+
+    private ContextClassLoader contextClassLoader;
+
 
     public SimpleContext(String base_path, String contextPath) {
         this.contextPath = contextPath;
         this.basePath = base_path;
     }
 
-    protected void startInteral() {
-        Container[] children = getChilds();
-    }
-
     protected void initInteral() {
+        servlets = new ConcurrentHashMap<>();
+        attributies = new ConcurrentHashMap<>();
+        initParameters = new ConcurrentHashMap<>();
+        registIntf = new ConcurrentHashMap<>();
         vertifyFilePath();
+        contextClassLoader=new ContextClassLoader(ClassLoader.getSystemClassLoader(),classpath);
     }
 
 
     private String classpath;
     private String webxml;
 
-    private void vertifyFilePath(){
-        String filepath= basePath.endsWith(File.separator)?
-                basePath : basePath +File.separator;
+    private void vertifyFilePath() {
+        String filepath = basePath.endsWith(File.separator) ?
+                basePath : basePath + File.separator;
 
-
+        classpath = filepath + WebAppConstant.CLASS_DIR;
+        webxml = filepath + WebAppConstant.WEB_XML;
     }
 
 
     protected void stopInteral() {
 
-    }
-
-    public String basePath() {
-        return basePath;
     }
 
     @Override
@@ -70,7 +76,8 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public ServletContext getContext(String uripath) {
-        throw new UnsupportedOperationException("getContext");
+        Host host = (Host) getParent();
+        return host.findContext(uripath);
     }
 
     @Override
@@ -119,23 +126,28 @@ public class SimpleContext extends BaseContext{
         return null;
     }
 
-    private RequestDispatcher getServletDispatcherTypeByName(String name){
+    private RequestDispatcher getServletDispatcherTypeByName(String name) {
+
         return null;
     }
 
     @Override
     public RequestDispatcher getNamedDispatcher(String name) {
-        return  getServletDispatcherTypeByName(name);
+        return getServletDispatcherTypeByName(name);
     }
 
     @Override
     public Servlet getServlet(String name) throws ServletException {
-        return servlets.get(name);
+        SimpleServletWrapper wrapper = servlets.get(name);
+        if (wrapper == null||!wrapper.isavailable()) {
+            throw new ServletException("can't find servlet");
+        }
+        return wrapper.getReal();
     }
 
     @Override
     public Enumeration<Servlet> getServlets() {
-        return new IteratorEnumeration<>(servlets.values().iterator());
+        return new IteratorWrapper<Servlet>(servlets.values().iterator());
     }
 
     @Override
@@ -160,16 +172,12 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public String getRealPath(String path) {
-        if ("classpath".equals(path)) {
-            return basePath;
-        } else {
-            throw new UnsupportedOperationException("now ,i can't parse this path");
-        }
+        return basePath;
     }
 
     @Override
     public String getServerInfo() {
-        throw new UnsupportedOperationException("getRealPath()");
+        throw new UnsupportedOperationException("getServerInfo()");
     }
 
     @Override
@@ -184,15 +192,8 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public boolean setInitParameter(String name, String value) {
-        synchronized (initParameters) {
-            String v = initParameters.get(name);
-            if (v == null) {
-                initParameters.put(name, value);
-            } else {
-                return false;
-            }
-        }
-        return false;
+        String res = initParameters.put(name, value);
+        return res != null;
     }
 
     @Override
@@ -223,43 +224,55 @@ public class SimpleContext extends BaseContext{
     /**
      * 等待特定的加载器实现 后再实现这些函数
      *
-     * @param servletName
-     * @param className
-     * @return
+     * @param servletName name of servlet
+     * @param className   servlet class
+     * @return inerface of edit opt of servlet
      */
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, String className) {
-        return null;
+        try {
+            Class cls=contextClassLoader.loadClass(className);
+            if (Servlet.class.isAssignableFrom(cls)){
+                return addServlet(servletName,cls);
+            }else {
+                return null;
+            }
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) {
-        synchronized (servlets) {
-            if (servlets.containsKey(servletName)) {
-                return null;
-            } else {
-
-                servlets.put(servletName, servlet);
-            }
+        SimpleServletWrapper wrapper = new SimpleServletWrapper(requestChannel(),
+                 servlet);
+        Object res = servlets.putIfAbsent(servletName, wrapper);
+        if (res == null) {
+            registIntf.putIfAbsent(servletName,wrapper.createRegistration());
         }
-        return null;
+
+        return registIntf.get(servletName);
     }
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) {
-        try {
-            Servlet servlet = createServlet(servletClass);
-            addServlet(servletName, servlet);
-        } catch (ServletException e) {
-            logger.warn("add servlet fialed with class");
+        SimpleServletWrapper wrapper = servlets.get(servletName);
+        if (!HttpServlet.class.isAssignableFrom(servletClass)) {
+            return null;
         }
-        return null;
+
+        if (wrapper == null) {
+            try {
+                Servlet servlet = createServlet(servletClass);
+                return addServlet(servletName, servlet);
+            } catch (ServletException e) {
+                return null;
+            }
+        }
+
+        return registIntf.get(servletName);
     }
 
-    /////////////////////////////////////////////
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
-    //////////////////////////////////////////////
 
     @Override
     public ServletRegistration.Dynamic addJspFile(String servletName, String jspFile) {
@@ -268,26 +281,24 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException {
-        T servlet = null;
+        T servlet;
+        if (!HttpServlet.class.isAssignableFrom(clazz)) {
+            throw new ServletException("container support http only");
+        }
+
         try {
             servlet = clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new ServletException(e);
+            throw new ServletException("create servlet instance failed", e);
         }
-
-        WebServlet webServlet = clazz.getAnnotation(WebServlet.class);
-        if (webServlet == null) {
-            throw new ServletException("the servlet don't need load with annotatin");
-        }
-        String[] urlpatterns = Arrays.stream(webServlet.urlPatterns()).map(s -> {
-            return contextPath + s;
-        }).collect(Collectors.toList()).toArray(new String[]{});
-
-
-
 
         return servlet;
     }
+
+    private RequestChannel requestChannel() {
+        return null;
+    }
+
 
     private <T extends Servlet> String getServletName(Class<T> clazz) throws ServletException {
         String name;
@@ -310,13 +321,6 @@ public class SimpleContext extends BaseContext{
         return null;
     }
 
-    /**
-     * 当前不支持这些特性
-     *
-     * @param filterName
-     * @param className
-     * @return
-     */
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, String className) {
         return null;
@@ -329,14 +333,15 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
-        if (HttpFilter.class.isAssignableFrom(filterClass)){
+        if (HttpFilter.class.isAssignableFrom(filterClass)) {
             try {
-                HttpFilter filter= (HttpFilter)
+                HttpFilter filter = (HttpFilter)
                         createFilter(filterClass);
-                if (filter!=null){
-                    filters.add(filter);
+                if (filter != null) {
+
                 }
-            } catch (ServletException ignored) {}
+            } catch (ServletException ignored) {
+            }
         }
         return null;
     }
@@ -414,9 +419,7 @@ public class SimpleContext extends BaseContext{
     }
 
     @Override
-    public void declareRoles(String... roleNames) {
-
-    }
+    public void declareRoles(String... roleNames) {}
 
     @Override
     public String getVirtualServerName() {
@@ -433,16 +436,26 @@ public class SimpleContext extends BaseContext{
 
     }
 
+    private ServletConfig generateServletConfig(String servletName) {
+        ServletRegistration.Dynamic dynamic = registIntf.get(servletName);
+        if (dynamic != null) {
+            return new ServletConfigFaced(this, dynamic);
+        } else {
+            return null;
+        }
+    }
+
     @Override
     public String getRequestCharacterEncoding() {
         return requestCharacterEncoding.displayName();
     }
 
-    private Charset requestCharacterEncoding=Charset.forName("UTF-8");
-    private Charset responseCharacterEncoding=Charset.forName("UTF-8");
+    private Charset requestCharacterEncoding = Charset.forName("UTF-8");
+    private Charset responseCharacterEncoding = Charset.forName("UTF-8");
+
     @Override
     public void setRequestCharacterEncoding(String encoding) {
-        requestCharacterEncoding=Charset.forName(encoding);
+        requestCharacterEncoding = Charset.forName(encoding);
     }
 
     @Override
@@ -452,28 +465,8 @@ public class SimpleContext extends BaseContext{
 
     @Override
     public void setResponseCharacterEncoding(String encoding) {
-        responseCharacterEncoding=Charset.forName(encoding);
+        responseCharacterEncoding = Charset.forName(encoding);
     }
 
-
-    static class IteratorEnumeration<E> implements Enumeration<E> {
-
-        Iterator<? extends E> iterator;
-
-        public IteratorEnumeration(Iterator<? extends E> iterator) {
-            this.iterator = iterator;
-        }
-
-        @Override
-        public boolean hasMoreElements() {
-            return iterator.hasNext();
-        }
-
-        @Override
-        public E nextElement() {
-            return iterator.next();
-        }
-
-    }
 
 }
