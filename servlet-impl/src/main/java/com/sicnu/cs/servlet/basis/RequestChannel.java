@@ -13,4 +13,6 @@ public interface RequestChannel {
 
     void through(HttpServletRequest request,
                  HttpServletResponse response);
+
+    void refreshChannel();
 }

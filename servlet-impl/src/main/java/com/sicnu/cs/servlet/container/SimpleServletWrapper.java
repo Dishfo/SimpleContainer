@@ -1,12 +1,9 @@
 package com.sicnu.cs.servlet.container;
 
-import com.cs.sicnu.core.process.BaseContainer;
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.RequestChannel;
-import com.sicnu.cs.servlet.http.ServletRegistrationImpl;
 
 import javax.servlet.*;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -14,63 +11,35 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SimpleServletWrapper extends
-        BaseContainer implements Servlet{
+        RegistraContainer implements Servlet,ServletRegistration.Dynamic{
 
     private RequestChannel requestChannel;
     private ServletConfig config;
     private boolean loadOnStarted=false;
 
-    private String servletName;
+
     private Servlet real;
-    private boolean isAsyncSupport;
-    private Class<? extends Servlet> servletClass;
+
     private Set<String> urls;
     private AtomicInteger isinited;
     private HashMap<String,String> initParameters;
     private MultipartConfigElement multipartConfig;
 
 
-    public SimpleServletWrapper(RequestChannel requestChannel,
-                                Class<? extends Servlet> servletClass) {
-        real=null;
-        this.requestChannel = requestChannel;
-        this.servletClass = servletClass;
-    }
-
-    public SimpleServletWrapper(RequestChannel requestChannel, Servlet real) {
+    SimpleServletWrapper(RequestChannel requestChannel, Servlet real,String name) {
+        super(name);
         this.requestChannel = requestChannel;
         this.real = real;
-        servletClass=real.getClass();
-    }
 
-    @Override
-    protected void initInteral() {
-
-        isAsyncSupport=false;
         initParameters=new HashMap<>();
         isinited=new AtomicInteger(0);
         urls=new HashSet<>();
 
-        if (real==null){
-            try {
-                real=servletClass.newInstance();
-            } catch (InstantiationException | IllegalAccessException e) {
-                isinited.set(2);
-            }
-        }
-
     }
 
 
-    public String getServletName() {
-        return servletName;
-    }
 
-    public void setServletName(String servletName) {
-        this.servletName = servletName;
-    }
-
-    public Servlet getReal() {
+    Servlet getReal() {
         return real;
     }
 
@@ -109,7 +78,7 @@ public class SimpleServletWrapper extends
 
     @Override
     public String getServletInfo() {
-        if (isavailable()){
+        if (isAvailable()){
             return " ";
         }
         return config.getServletName()+" in "+
@@ -122,12 +91,31 @@ public class SimpleServletWrapper extends
                 "didn't support add child");
     }
 
-    public String  setInitParameter(String name,String val){
-       return initParameters.put(name,val);
+
+
+    @Override
+    public boolean setInitParameter(String name, String value) {
+        return initParameters.putIfAbsent(name,value)==null;
     }
 
-    public String getInitParameter(String name){
+    @Override
+    public String getInitParameter(String name) {
         return initParameters.get(name);
+    }
+
+
+    @Override
+    public Set<String> setInitParameters(Map<String, String> initParameters) {
+        Set<String> confilct=new HashSet<>();
+        initParameters.forEach((k,v) -> {
+            Object res=this.initParameters.putIfAbsent(k,v);
+            if (res!=null){
+                confilct.add(k);
+            }
+        });
+
+        return confilct;
+
     }
 
     public Map<String,String> getInitParameters(){
@@ -148,12 +136,29 @@ public class SimpleServletWrapper extends
         real.destroy();
     }
 
-    public ServletRegistration.Dynamic createRegistration(){
-        return new ServletRegistrationImpl(servletClass,this);
+
+
+    @Override
+    public Set<String> addMapping(String... urlPatterns) {
+        Set<String> confilct=new HashSet<>();
+        for (String s:urlPatterns){
+            if (urls.contains(s)){
+                confilct.add(s);
+            }else {
+                urls.add(s);
+            }
+        }
+
+        return confilct;
     }
 
     public Set<String> getMappings(){
         return Collections.unmodifiableSet(urls);
+    }
+
+    @Override
+    public String getRunAsRole() {
+        return null;
     }
 
     public void addMapping(String url){
@@ -164,19 +169,35 @@ public class SimpleServletWrapper extends
         urls.add(url);
     }
 
+    @Override
+    public void setLoadOnStartup(int loadOnStartup) {
+        this.loadOnStarted=(loadOnStartup>0);
+    }
+
+    @Override
+    public Set<String> setServletSecurity(ServletSecurityElement constraint) {
+        throw new UnsupportedOperationException("can't support security");
+    }
+
     public void setMultipartConfig(MultipartConfigElement multipartConfig) {
         this.multipartConfig=multipartConfig;
     }
 
+    @Override
+    public void setRunAsRole(String roleName) {
+        throw new UnsupportedOperationException("can't run as role");
+    }
+
     public boolean isAsyncSupport() {
-        return isAsyncSupport;
+        return isAsync;
     }
 
-    public void setAsyncSupport(boolean asyncSupport) {
-        isAsyncSupport = asyncSupport;
-    }
-
-    public boolean isavailable(){
+    boolean isAvailable(){
         return isinited.get()==1;
+    }
+
+    @Override
+    public void setAsyncSupported(boolean isAsyncSupported) {
+
     }
 }

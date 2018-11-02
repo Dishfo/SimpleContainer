@@ -3,24 +3,19 @@ package com.sicnu.cs.servlet.container;
 import com.sicnu.cs.servlet.basis.IteratorWrapper;
 import com.sicnu.cs.servlet.basis.RequestChannel;
 import com.sicnu.cs.servlet.basis.WebAppConstant;
-import com.sicnu.cs.servlet.http.ServletConfigFaced;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.descriptor.JspConfigDescriptor;
-import javax.servlet.http.HttpFilter;
 import javax.servlet.http.HttpServlet;
 import java.io.File;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.Enumeration;
-import java.util.EventListener;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SimpleContext extends BaseContext {
@@ -31,9 +26,9 @@ public class SimpleContext extends BaseContext {
     private String basePath;
 
     private ConcurrentHashMap<String, SimpleServletWrapper> servlets;
+    private ConcurrentHashMap<String, SimpleFilterWrapper> filters;
     private ConcurrentHashMap<String, Object> attributies;
     private ConcurrentHashMap<String, String> initParameters;
-    private ConcurrentHashMap<String, ServletRegistration.Dynamic> registIntf;
 
     private ContextClassLoader contextClassLoader;
 
@@ -47,7 +42,6 @@ public class SimpleContext extends BaseContext {
         servlets = new ConcurrentHashMap<>();
         attributies = new ConcurrentHashMap<>();
         initParameters = new ConcurrentHashMap<>();
-        registIntf = new ConcurrentHashMap<>();
         vertifyFilePath();
         contextClassLoader=new ContextClassLoader(ClassLoader.getSystemClassLoader(),classpath);
     }
@@ -65,9 +59,7 @@ public class SimpleContext extends BaseContext {
     }
 
 
-    protected void stopInteral() {
-
-    }
+    protected void stopInteral() {}
 
     @Override
     public String getContextPath() {
@@ -122,7 +114,6 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public RequestDispatcher getRequestDispatcher(String path) {
-
         return null;
     }
 
@@ -139,7 +130,7 @@ public class SimpleContext extends BaseContext {
     @Override
     public Servlet getServlet(String name) throws ServletException {
         SimpleServletWrapper wrapper = servlets.get(name);
-        if (wrapper == null||!wrapper.isavailable()) {
+        if (wrapper == null||!wrapper.isAvailable()) {
             throw new ServletException("can't find servlet");
         }
         return wrapper.getReal();
@@ -147,7 +138,7 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public Enumeration<Servlet> getServlets() {
-        return new IteratorWrapper<Servlet>(servlets.values().iterator());
+        return new IteratorWrapper<>(servlets.values().iterator());
     }
 
     @Override
@@ -228,6 +219,7 @@ public class SimpleContext extends BaseContext {
      * @param className   servlet class
      * @return inerface of edit opt of servlet
      */
+
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, String className) {
         try {
@@ -245,13 +237,9 @@ public class SimpleContext extends BaseContext {
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) {
         SimpleServletWrapper wrapper = new SimpleServletWrapper(requestChannel(),
-                 servlet);
+                 servlet,servletName);
         Object res = servlets.putIfAbsent(servletName, wrapper);
-        if (res == null) {
-            registIntf.putIfAbsent(servletName,wrapper.createRegistration());
-        }
-
-        return registIntf.get(servletName);
+        return servlets.get(servletName);
     }
 
     @Override
@@ -270,7 +258,7 @@ public class SimpleContext extends BaseContext {
             }
         }
 
-        return registIntf.get(servletName);
+        return servlets.get(servletName);
     }
 
 
@@ -296,6 +284,7 @@ public class SimpleContext extends BaseContext {
     }
 
     private RequestChannel requestChannel() {
+
         return null;
     }
 
@@ -313,7 +302,7 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public ServletRegistration getServletRegistration(String servletName) {
-        return null;
+        return servlets.get(servletName);
     }
 
     @Override
@@ -323,50 +312,58 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, String className) {
-        return null;
+        try {
+            Class cls=contextClassLoader.loadClass(className);
+            if (Filter.class.isAssignableFrom(cls)){
+                return null;
+            }
+            return addFilter(filterName,cls);
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
-        return null;
-    }
-
-    @Override
-    public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
-        if (HttpFilter.class.isAssignableFrom(filterClass)) {
-            try {
-                HttpFilter filter = (HttpFilter)
-                        createFilter(filterClass);
-                if (filter != null) {
-
-                }
-            } catch (ServletException ignored) {
-            }
+        SimpleFilterWrapper wrapper=new SimpleFilterWrapper(filter,filterName);
+        if (filters.putIfAbsent(filterName,wrapper)==null){
+            return wrapper;
         }
         return null;
     }
 
     @Override
-    public <T extends Filter> T createFilter(Class<T> clazz) throws ServletException {
+    public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
+        try {
+            return addFilter(filterName,createFilter(filterClass));
+        } catch (ServletException e) {
+            return null;
+        }
+    }
 
-        return null;
+    @Override
+    public <T extends Filter> T createFilter(Class<T> clazz) throws ServletException {
+        T filter;
+
+        try {
+            filter=clazz.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new ServletException("filter create failed",e);
+        }
+
+        return filter;
     }
 
 
     @Override
     public FilterRegistration getFilterRegistration(String filterName) {
-        return null;
+        return filters.get(filterName);
     }
 
     @Override
     public Map<String, ? extends FilterRegistration> getFilterRegistrations() {
-        return null;
+        return Collections.unmodifiableMap(filters);
     }
-
-    /////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////
 
     @Override
     public SessionCookieConfig getSessionCookieConfig() {
@@ -436,15 +433,6 @@ public class SimpleContext extends BaseContext {
 
     }
 
-    private ServletConfig generateServletConfig(String servletName) {
-        ServletRegistration.Dynamic dynamic = registIntf.get(servletName);
-        if (dynamic != null) {
-            return new ServletConfigFaced(this, dynamic);
-        } else {
-            return null;
-        }
-    }
-
     @Override
     public String getRequestCharacterEncoding() {
         return requestCharacterEncoding.displayName();
@@ -467,6 +455,8 @@ public class SimpleContext extends BaseContext {
     public void setResponseCharacterEncoding(String encoding) {
         responseCharacterEncoding = Charset.forName(encoding);
     }
+
+
 
 
 }
