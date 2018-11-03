@@ -1,19 +1,24 @@
 package com.sicnu.cs.servlet.basis;
 
-import javax.servlet.http.HttpServletMapping;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ServletPosition {
-    private InetAddress host;
+    private List<InetAddress> host=new ArrayList<>();
     private String contextPath;
-    private HttpServletMapping servletMapping;
+    private String  servletName;
 
 
-    public InetAddress getHost() {
+    public List<InetAddress> getHost() {
         return host;
     }
 
-    public void setHost(InetAddress host) {
+    public void addHost(InetAddress host) {
+        this.host.add(host);
+    }
+
+    public void setHost(List<InetAddress> host) {
         this.host = host;
     }
 
@@ -25,11 +30,11 @@ public class ServletPosition {
         this.contextPath = contextPath;
     }
 
-    public HttpServletMapping getServletMapping() {
-        return servletMapping;
+    public String  getServletMapping() {
+        return servletName;
     }
 
-    public void setServletMapping(HttpServletMapping servletMapping) {
-        this.servletMapping = servletMapping;
+    public void setServletMapping(String  servletName) {
+        this.servletName = servletName;
     }
 }

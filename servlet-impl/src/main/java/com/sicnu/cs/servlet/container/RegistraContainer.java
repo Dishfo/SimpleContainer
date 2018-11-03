@@ -1,14 +1,12 @@
 package com.sicnu.cs.servlet.container;
 
-import com.cs.sicnu.core.process.BaseContainer;
-
 import javax.servlet.Registration;
 import java.util.*;
 
-public class RegistraContainer extends BaseContainer implements Registration.Dynamic {
+public class RegistraContainer extends RegisterContainer implements Registration.Dynamic {
 
     private String name;
-    private Class cls;
+    Class cls;
     private HashMap<String,String> initParameters;
     boolean isAsync;
 

@@ -12,7 +12,8 @@ public class ServletConfigFaced implements ServletConfig {
     private ServletContext context;
     private ServletRegistration.Dynamic registration;
 
-    public ServletConfigFaced(ServletContext context, ServletRegistration.Dynamic registration) {
+    public ServletConfigFaced(ServletContext context,
+                              ServletRegistration.Dynamic registration) {
         this.context = context;
         this.registration = registration;
     }

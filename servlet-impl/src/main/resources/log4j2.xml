@@ -3,11 +3,7 @@
 <Configuration status="OFF" xmlns="http://logging.apache.org/log4j/2.0/config">
 
     <Appenders>
-        <Appender type="org.apache.logging.log4j.core.appender.FileAppender"
-                  name="file_out_appender" fileName="test.12">
-            <Layout type="org.apache.logging.log4j.core.layout.PatternLayout"
-                    pattern="%5p [%t] %d{yyyy-MM-dd HH:mm:ss} (%F:%L) %m%n"/>
-        </Appender>
+
         
         <Console name="console_out_appender" target="SYSTEM_OUT">
             <PatternLayout pattern="%5p [%t] %d{yyyy-MM-dd HH:mm:ss} (%F:%L) %m%n"/>

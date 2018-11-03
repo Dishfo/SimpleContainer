@@ -1,5 +1,7 @@
 package com.sicnu.cs.servlet.container;
 
+import com.sicnu.cs.servlet.basis.ServletAccess;
+
 import javax.servlet.*;
 import java.io.IOException;
 import java.util.*;
@@ -9,22 +11,24 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
 
     private Filter real;
     private FilterConfig config;
-    private Class filterCls;
     private List<String> urls;
+    private Boolean isMatchAfter;
 
-    private List<String> supportsServlets;
-
+    private ServletAccess access;
     private Set<DispatcherType> types;
     private AtomicInteger isinited;
 
-    public SimpleFilterWrapper(Filter real,String filterName) {
+    SimpleFilterWrapper(Filter real, String filterName,
+                        ServletAccess access) {
+
         super(filterName);
         this.real = real;
         types=new HashSet<>();
         isinited=new AtomicInteger(0);
         urls=new ArrayList<>();
-        supportsServlets=new ArrayList<>();
-        filterCls=real.getClass();
+        isMatchAfter=null;
+        this.access=access;
+        cls=real.getClass();
     }
 
     @Override
@@ -33,11 +37,9 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
             throw new ServletException("this filter is not " +
                     "available");
         }
-
         if (isinited.get()==1){
             return;
         }
-
         this.config=filterConfig;
         real.init(filterConfig);
         isinited.set(1);
@@ -45,16 +47,23 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        real.doFilter(request,response,chain);
+        if (isAvailable()){
+            throw new ServletException("this filter is not availaable");
+        }
+        if (types.contains(request.getDispatcherType())){
+            real.doFilter(request,response,chain);
+        }
     }
+
+
 
     @Override
     public void destroy() {
         real.destroy();
     }
 
-    public boolean isAvailable(){
-        return isinited.get()==1;
+    boolean isAvailable(){
+        return isinited.get() != 1;
     }
 
     public boolean isAsyncSupport() {
@@ -64,15 +73,30 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
     @Override
     public void addMappingForServletNames(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... servletNames) {
         if (this.types.size()==0){
-            for (DispatcherType type:dispatcherTypes){
-                types.add(type==null?DispatcherType.REQUEST:type);
+            if (dispatcherTypes==null){
+                types.add(DispatcherType.REQUEST);
+            }else {
+                for (DispatcherType type:dispatcherTypes){
+                    types.add(type==null?DispatcherType.REQUEST:type);
+                }
+            }
+
+            this.isMatchAfter=isMatchAfter;
+        }
+
+        for (String sname:servletNames){
+            List<String> patterns=access.getUrlPattern(sname);
+            String contextPath=access.getContexPath();
+            for (String s:patterns){
+                addMappingForUrlPatterns(null,
+                        false,contextPath+s);
             }
         }
     }
 
     @Override
     public Collection<String> getServletNameMappings() {
-        return Collections.unmodifiableCollection(supportsServlets);
+        return null;
     }
 
     @Override
@@ -81,7 +105,14 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
             for (DispatcherType type:dispatcherTypes){
                 types.add(type==null?DispatcherType.REQUEST:type);
             }
+            this.isMatchAfter=isMatchAfter;
         }
+
+        urls.addAll(Arrays.asList(urlPatterns));
+    }
+
+    public boolean getMatchAfter() {
+        return isMatchAfter;
     }
 
     @Override
@@ -89,4 +120,8 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
         return null;
     }
 
+    @Override
+    protected boolean needAllCompete() {
+        return false;
+    }
 }

@@ -5,6 +5,7 @@ import com.cs.sicnu.core.utils.StringUtils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.HashMap;
 
 public class ContextClassLoader extends ClassLoader{
     private String basePath;
@@ -39,5 +40,16 @@ public class ContextClassLoader extends ClassLoader{
             return null;
         }
     }
+
+    private static HashMap<String,ContextClassLoader> loaderMap=new HashMap<>();
+
+    public static ContextClassLoader getClassLoader(String basePath){
+        ContextClassLoader loader=loaderMap.get(basePath);
+        if (loader==null){
+            loader=new ContextClassLoader(getSystemClassLoader(),basePath);
+        }
+        return loader;
+    }
+
 
 }

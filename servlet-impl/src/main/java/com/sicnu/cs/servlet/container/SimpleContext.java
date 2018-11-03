@@ -1,8 +1,9 @@
 package com.sicnu.cs.servlet.container;
 
-import com.sicnu.cs.servlet.basis.IteratorWrapper;
-import com.sicnu.cs.servlet.basis.RequestChannel;
-import com.sicnu.cs.servlet.basis.WebAppConstant;
+import com.cs.sicnu.core.process.Container;
+import com.sicnu.cs.servlet.basis.*;
+import com.sicnu.cs.servlet.http.FilterConfigFaced;
+import com.sicnu.cs.servlet.http.ServletConfigFaced;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -11,6 +12,7 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpServlet;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -32,20 +34,55 @@ public class SimpleContext extends BaseContext {
 
     private ContextClassLoader contextClassLoader;
 
-
     public SimpleContext(String base_path, String contextPath) {
         this.contextPath = contextPath;
         this.basePath = base_path;
     }
 
     protected void initInteral() {
+        filters=new ConcurrentHashMap<>();
         servlets = new ConcurrentHashMap<>();
         attributies = new ConcurrentHashMap<>();
         initParameters = new ConcurrentHashMap<>();
         vertifyFilePath();
-        contextClassLoader=new ContextClassLoader(ClassLoader.getSystemClassLoader(),classpath);
+        contextClassLoader=ContextClassLoader.getClassLoader(classpath);
     }
 
+
+    @Override
+    protected void startInteral() {
+        servlets.forEach((k,v)->{
+            if (!v.isAvailable()){
+                try {
+                    if (v.isLoadOnStart()) {
+                        v.init(generateServletConfig(k));
+                    }
+                } catch (ServletException ignored) {
+
+                }
+            }
+        });
+
+        filters.forEach((k,v)->{
+            if (v.isAvailable()){
+                try {
+                    v.init(generateFilterConfig(k));
+                } catch (ServletException ignored) {
+
+                }
+            }
+        });
+    }
+
+    private FilterConfig generateFilterConfig(String name){
+        SimpleFilterWrapper wrapper=filters.get(name);
+        return new FilterConfigFaced(this,wrapper);
+    }
+
+    private ServletConfig generateServletConfig(String name){
+        SimpleServletWrapper wrapper=servlets.get(name);
+        return new ServletConfigFaced(this,wrapper);
+    }
 
     private String classpath;
     private String webxml;
@@ -239,6 +276,11 @@ public class SimpleContext extends BaseContext {
         SimpleServletWrapper wrapper = new SimpleServletWrapper(requestChannel(),
                  servlet,servletName);
         Object res = servlets.putIfAbsent(servletName, wrapper);
+
+        if (res==null){
+            addChild(wrapper);
+        }
+
         return servlets.get(servletName);
     }
 
@@ -260,7 +302,6 @@ public class SimpleContext extends BaseContext {
 
         return servlets.get(servletName);
     }
-
 
     @Override
     public ServletRegistration.Dynamic addJspFile(String servletName, String jspFile) {
@@ -284,9 +325,10 @@ public class SimpleContext extends BaseContext {
     }
 
     private RequestChannel requestChannel() {
-
         return null;
     }
+
+
 
 
     private <T extends Servlet> String getServletName(Class<T> clazz) throws ServletException {
@@ -298,6 +340,7 @@ public class SimpleContext extends BaseContext {
         }
         return name;
     }
+
 
 
     @Override
@@ -325,7 +368,7 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
-        SimpleFilterWrapper wrapper=new SimpleFilterWrapper(filter,filterName);
+        SimpleFilterWrapper wrapper=new SimpleFilterWrapper(filter,filterName,new InteralServletAcess());
         if (filters.putIfAbsent(filterName,wrapper)==null){
             return wrapper;
         }
@@ -412,7 +455,7 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public ClassLoader getClassLoader() {
-        return null;
+        return contextClassLoader;
     }
 
     @Override
@@ -457,6 +500,60 @@ public class SimpleContext extends BaseContext {
     }
 
 
+    @Override
+    protected ServletPosition fillPosition(ServletPosition servletPosition) {
+        servletPosition.setContextPath(getContextPath());
+        return servletPosition;
+    }
+
+    private class InteralServletAcess implements ServletAccess {
+
+        @Override
+        public List<String> getUrlPattern(String name) {
+            List<String> urls=new ArrayList<>();
+            SimpleServletWrapper wrapper=servlets.get(name);
+            if (wrapper!=null){
+                urls.addAll(wrapper.getMappings());
+            }
+            return urls;
+        }
+
+        @Override
+        public String getContexPath() {
+            return contextPath;
+        }
+    }
 
 
+    @Override
+    public void setParent(Container container) {
+        if (!(container instanceof Host)){
+            throw new IllegalArgumentException(" context's parent must be host");
+        }
+        super.setParent(container);
+    }
+
+
+    private class InteralFilterChain implements FilterChain{
+
+        private Collection<SimpleFilterWrapper> filterWrappers=filters.values();
+        private int cur=0;
+        private int size=0;
+        private SimpleFilterWrapper[] wrappers;
+
+        public InteralFilterChain() {
+            cur=0;
+            size=filterWrappers.size();
+            wrappers=filterWrappers.toArray(new SimpleFilterWrapper[]{});
+        }
+
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
+            if (cur>=size){
+                return;
+            }
+            wrappers[cur++].doFilter(request,response,this);
+            doFilter(request,response);
+        }
+    }
 }

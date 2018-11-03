@@ -15,7 +15,7 @@ public class ZlibCompress implements CompressHandler {
         deflater.setInput(bytes);
         deflater.finish();
         byte[] cache=new byte[1024];
-        int len=0;
+        int len;
         while (!deflater.finished()){
             len=deflater.deflate(cache);
             arrayOutputStream.write(cache,0,len);
@@ -31,7 +31,7 @@ public class ZlibCompress implements CompressHandler {
         Inflater inflater=new Inflater();
         inflater.setInput(bytes);
         byte[] cache=new byte[1024];
-        int len=0;
+        int len;
 
         while (!inflater.finished()){
             try {

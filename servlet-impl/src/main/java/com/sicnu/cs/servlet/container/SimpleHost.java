@@ -1,18 +1,21 @@
 package com.sicnu.cs.servlet.container;
 
-import com.cs.sicnu.core.process.BaseContainer;
 import com.cs.sicnu.core.process.Container;
+import com.sicnu.cs.servlet.basis.ServletPosition;
 
 import javax.servlet.ServletContext;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
-public class SimpleHost extends BaseContainer implements Host{
+public class SimpleHost extends RegisterContainer implements Host{
 
     private List<InetAddress> vaildAddress;
+    private HashMap<String,ServletContext> contextHashMap;
 
     public SimpleHost() {
+        contextHashMap=new HashMap<>();
         vaildAddress=new ArrayList<>();
     }
 
@@ -33,14 +36,32 @@ public class SimpleHost extends BaseContainer implements Host{
 
     @Override
     public ServletContext findContext(String uripath) {
-        for (Container c:getChilds()){
-            if (c instanceof ServletContext){
-                ServletContext context= (ServletContext) c;
-                if (uripath.startsWith(context.getContextPath())){
-                    return context;
-                }
+        List<ServletContext> result=new ArrayList<>();
+        contextHashMap.forEach((s, context) -> {
+            if (uripath.startsWith(s)){
+                result.add(context);
             }
+        });
+
+        return result.size()==0?null:result.get(0);
+    }
+
+    @Override
+    public void addContext(ServletContext context) {
+        contextHashMap.putIfAbsent(context.getContextPath(),context);
+    }
+
+    @Override
+    public void setParent(Container container) {
+        if (!(container instanceof Engine)){
+            throw new IllegalArgumentException("host parent must be engine");
         }
-        return null;
+        super.setParent(container);
+    }
+
+    @Override
+    protected ServletPosition fillPosition(ServletPosition servletPosition) {
+        servletPosition.setHost(vaildAddress);
+        return servletPosition;
     }
 }

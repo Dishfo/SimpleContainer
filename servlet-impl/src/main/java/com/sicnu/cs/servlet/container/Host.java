@@ -1,5 +1,7 @@
 package com.sicnu.cs.servlet.container;
 
+import com.sicnu.cs.http.HttpRequestHandler;
+
 import javax.servlet.ServletContext;
 import java.net.InetAddress;
 
@@ -15,5 +17,6 @@ public interface Host {
 
     void addAddress(InetAddress address);
     ServletContext findContext(String uripath);
+    void addContext(ServletContext context);
 
 }

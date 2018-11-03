@@ -8,6 +8,7 @@ public final class HttpHeadConstant {
     public static final String CT_TYPE_text="text/plain";
 
     public static final String H_CONT_DISP="content-disposition";
+    public static final String H_HOST="host";
     public static final String H_CONT_LEN="content-length";
     public static final String H_CONT_TYPE="content-type";
     public static final String H_CONT_ENCODING="content_encoding";

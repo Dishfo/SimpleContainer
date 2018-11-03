@@ -2,6 +2,7 @@ package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.RequestChannel;
+import com.sicnu.cs.servlet.basis.ServletPosition;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -16,7 +17,6 @@ public class SimpleServletWrapper extends
     private RequestChannel requestChannel;
     private ServletConfig config;
     private boolean loadOnStarted=false;
-
 
     private Servlet real;
 
@@ -34,10 +34,8 @@ public class SimpleServletWrapper extends
         initParameters=new HashMap<>();
         isinited=new AtomicInteger(0);
         urls=new HashSet<>();
-
+        cls=real.getClass();
     }
-
-
 
     Servlet getReal() {
         return real;
@@ -67,12 +65,20 @@ public class SimpleServletWrapper extends
 
     @Override
     public void service(ServletRequest req, ServletResponse res) throws ServletException, IOException {
+        if (!isAvailable()){
+            throw new ServletException("this servlet is not availaable");
+        }
+
         if (!(req instanceof HttpServletRequest)
                 ||!(res instanceof HttpServletResponse)){
             throw new ServletException("this container support http process only");
         }
-        requestChannel.through((HttpServletRequest) req
-                ,(HttpServletResponse) res);
+
+        if (requestChannel!=null){
+            requestChannel.through((HttpServletRequest) req
+                    ,(HttpServletResponse) res);
+        }
+
         real.service(req,res);
     }
 
@@ -91,8 +97,6 @@ public class SimpleServletWrapper extends
                 "didn't support add child");
     }
 
-
-
     @Override
     public boolean setInitParameter(String name, String value) {
         return initParameters.putIfAbsent(name,value)==null;
@@ -103,25 +107,9 @@ public class SimpleServletWrapper extends
         return initParameters.get(name);
     }
 
-
-    @Override
-    public Set<String> setInitParameters(Map<String, String> initParameters) {
-        Set<String> confilct=new HashSet<>();
-        initParameters.forEach((k,v) -> {
-            Object res=this.initParameters.putIfAbsent(k,v);
-            if (res!=null){
-                confilct.add(k);
-            }
-        });
-
-        return confilct;
-
-    }
-
     public Map<String,String> getInitParameters(){
         return Collections.unmodifiableMap(initParameters);
     }
-
 
     public void setLoadOnStart(boolean load){
         loadOnStarted=load;
@@ -136,19 +124,20 @@ public class SimpleServletWrapper extends
         real.destroy();
     }
 
-
-
     @Override
     public Set<String> addMapping(String... urlPatterns) {
         Set<String> confilct=new HashSet<>();
+        List<String> tmp=new ArrayList<>();
         for (String s:urlPatterns){
             if (urls.contains(s)){
                 confilct.add(s);
             }else {
+                tmp.add(s);
                 urls.add(s);
             }
         }
 
+        registerUrl(tmp.toArray(new String[]{}));
         return confilct;
     }
 
@@ -166,7 +155,21 @@ public class SimpleServletWrapper extends
             urls.contains(url)){
             return;
         }
+
         urls.add(url);
+        registerUrl(url);
+    }
+
+    private void registerUrl(String url){
+        ServletPosition position=new ServletPosition();
+        position.setServletMapping(getName());
+        onRegister(new String[]{url},position);
+    }
+
+    private void registerUrl(String[] urls){
+        ServletPosition position=new ServletPosition();
+        position.setServletMapping(getName());
+        onRegister(urls,position);
     }
 
     @Override
@@ -197,7 +200,7 @@ public class SimpleServletWrapper extends
     }
 
     @Override
-    public void setAsyncSupported(boolean isAsyncSupported) {
-
+    protected boolean needAllCompete() {
+        return false;
     }
 }
