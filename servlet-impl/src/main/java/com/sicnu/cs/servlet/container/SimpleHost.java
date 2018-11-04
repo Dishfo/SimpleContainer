@@ -2,8 +2,10 @@ package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.ServletPosition;
+import com.sicnu.cs.servlet.basis.HttpPair;
 
 import javax.servlet.ServletContext;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,11 +22,6 @@ public class SimpleHost extends RegisterContainer implements Host{
     }
 
     @Override
-    protected void initInteral() {
-
-    }
-
-    @Override
     public InetAddress[] getInetAddress() {
         return vaildAddress.toArray(new InetAddress[]{});
     }
@@ -37,11 +34,15 @@ public class SimpleHost extends RegisterContainer implements Host{
     @Override
     public ServletContext findContext(String uripath) {
         List<ServletContext> result=new ArrayList<>();
-        contextHashMap.forEach((s, context) -> {
-            if (uripath.startsWith(s)){
-                result.add(context);
+        Container[] childern=getChilds();
+
+        for (Container c:childern){
+            if (c instanceof ServletContext){
+                if (uripath.equals(((ServletContext) c).getContextPath())){
+                    result.add((ServletContext) c);
+                }
             }
-        });
+        }
 
         return result.size()==0?null:result.get(0);
     }
@@ -49,6 +50,19 @@ public class SimpleHost extends RegisterContainer implements Host{
     @Override
     public void addContext(ServletContext context) {
         contextHashMap.putIfAbsent(context.getContextPath(),context);
+    }
+
+    @Override
+    public void handleHttp(HttpPair pair, ServletPosition position) {
+        ServletContext context=findContext(position.getContextPath());
+        if (context!=null){
+            if (context instanceof BaseContext){
+                ((BaseContext) context).process(pair,position);
+            }
+        }else {
+            pair.setStatus(404);
+            try {pair.commitResponse();} catch (IOException ignored) {}
+        }
     }
 
     @Override

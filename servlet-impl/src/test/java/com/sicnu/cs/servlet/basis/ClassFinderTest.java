@@ -67,6 +67,10 @@ public class ClassFinderTest {
         });
         context.start();
         System.out.println(cls.size() +"  "+context.getLifeState());
+
+
+
+
     }
 
 }

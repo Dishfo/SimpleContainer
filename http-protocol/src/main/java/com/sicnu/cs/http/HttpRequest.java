@@ -1,6 +1,7 @@
 package com.sicnu.cs.http;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class HttpRequest {
 
@@ -12,15 +13,15 @@ public class HttpRequest {
     private byte[] data;
 
 
-    public int getContentLength() {
+    int getContentLength() {
         return contentLength;
     }
 
-    public void setContentLength(int contentLength) {
+    void setContentLength(int contentLength) {
         this.contentLength = contentLength;
     }
 
-    public void setHeader(String name,String val){
+    void setHeader(String name, String val){
         headers.put(name,val);
     }
 
@@ -32,7 +33,7 @@ public class HttpRequest {
         return HTTPVersion;
     }
 
-    public void setHTTPVersion(String HTTPVersion) {
+    void setHTTPVersion(String HTTPVersion) {
         this.HTTPVersion = HTTPVersion;
     }
 
@@ -40,7 +41,7 @@ public class HttpRequest {
         return method;
     }
 
-    public void setMethod(String method) {
+    void setMethod(String method) {
         this.method = method;
     }
 
@@ -48,7 +49,7 @@ public class HttpRequest {
         return url;
     }
 
-    public void setUrl(String url) {
+    void setUrl(String url) {
         this.url = url;
     }
 
@@ -56,7 +57,11 @@ public class HttpRequest {
         return data;
     }
 
-    public void setData(byte[] data) {
+    public Map<String,String> getHeaders(){
+        return headers;
+    }
+
+    void setData(byte[] data) {
         this.data = data;
     }
 }

@@ -1,18 +1,52 @@
 package com.sicnu.cs.servlet.http;
 
+import com.cs.sicnu.core.protocol.HttpHeadConstant;
+import com.sicnu.cs.servlet.basis.ArrayEnumeration;
+import com.sicnu.cs.servlet.basis.ByteServletInputStream;
+import com.sicnu.cs.servlet.basis.HttpPair;
+import com.sicnu.cs.servlet.basis.ListEnumeration;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.nio.charset.Charset;
 import java.security.Principal;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.Locale;
-import java.util.Map;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.util.*;
 
 public class InteralHttpServletRequest implements HttpServletRequest {
 
+    private static final String[] emptystrarray=new String[]{};
+    private HttpPair pair;
+    private HttpServletMapping servletMapping;
+    private ServletContext context;
+    private HashMap<String,Object> attributes;
+    private String serveltPath;
+    private String characterEncoding;
+    ByteServletInputStream inputStream;
+    public InteralHttpServletRequest(HttpPair pair,
+                                     ServletContext context) {
+        this.pair = pair;
+        this.context = context;
+        //serveltPath=context.getContextPath()+"/"+servletMapping.getServletName();
+        attributes=new HashMap<>();
+        inputStream=new ByteServletInputStream(pair.getInputData());
+    }
+
+    public void setServletMapping(HttpServletMapping servletMapping) {
+        this.servletMapping = servletMapping;
+    }
+
+    @Override
+    public HttpServletMapping getHttpServletMapping() {
+        return servletMapping;
+    }
 
     @Override
     public String getAuthType() {
@@ -26,57 +60,83 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public long getDateHeader(String name) {
-        return 0;
+        String val=pair.getRequsetHead(name.toLowerCase());
+        if (val==null){
+            return -1;
+        }else {
+            DateFormat dateFormat=DateFormat.getDateInstance();
+            try {
+               return dateFormat.parse(val).getTime();
+            } catch (ParseException e) {
+                throw new IllegalArgumentException("error data format");
+            }
+        }
     }
 
     @Override
     public String getHeader(String name) {
-        return null;
+        return pair.getRequsetHead(name.toLowerCase());
     }
+
+
 
     @Override
     public Enumeration<String> getHeaders(String name) {
-        return null;
+        String val=getHeader(name);
+        if (val==null){
+            return new ArrayEnumeration<>(emptystrarray);
+        }else {
+            return new ArrayEnumeration<>(val.split(HttpHeadConstant.head_value_split));
+        }
     }
 
     @Override
     public Enumeration<String> getHeaderNames() {
-        return null;
+        Map<String,String> headers=pair.getRequsetHeaders();
+        List<String> list = new ArrayList<>(headers.keySet());
+        return new ListEnumeration<>(list);
     }
 
     @Override
     public int getIntHeader(String name) {
-        return 0;
+        String val=getHeader(name);
+        if (val==null){
+            return -1;
+        }else {
+            return Integer.parseInt(val);
+        }
     }
 
     @Override
     public String getMethod() {
-        return null;
+        return pair.getMethod();
     }
 
     @Override
     public String getPathInfo() {
-        return null;
+        URI uri=pair.getRequsetUrl();
+        return uri.getPath();
     }
+
 
     @Override
     public String getPathTranslated() {
-        return null;
+        return serveltPath;
     }
 
     @Override
     public String getContextPath() {
-        return null;
+        return context.getContextPath();
     }
 
     @Override
     public String getQueryString() {
-        return null;
+        return pair.getRequsetUrl().getQuery();
     }
 
     @Override
     public String getRemoteUser() {
-        return null;
+        return pair.getRemote().toString();
     }
 
     @Override
@@ -96,17 +156,24 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getRequestURI() {
-        return null;
+        return pair.getRequsetUrl().toString();
     }
 
     @Override
     public StringBuffer getRequestURL() {
-        return null;
+        StringBuffer buffer=new StringBuffer();
+        try {
+            buffer.append(pair.getRequsetUrl().toURL().toString());
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(" this url is illegal");
+        }
+        return buffer;
     }
 
     @Override
     public String getServletPath() {
-        return null;
+        String url=getRequestURI();
+        return url.substring(getContextPath().length());
     }
 
     @Override
@@ -150,14 +217,10 @@ public class InteralHttpServletRequest implements HttpServletRequest {
     }
 
     @Override
-    public void login(String username, String password) throws ServletException {
-
-    }
+    public void login(String username, String password) throws ServletException {}
 
     @Override
-    public void logout() throws ServletException {
-
-    }
+    public void logout() throws ServletException {}
 
     @Override
     public Collection<Part> getParts() throws IOException, ServletException {
@@ -176,42 +239,59 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public Object getAttribute(String name) {
-        return null;
+        return attributes.get(name);
     }
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return null;
+        List<String> list=new ArrayList<>(attributes.keySet());
+        return new ListEnumeration<>(list);
     }
 
     @Override
     public String getCharacterEncoding() {
-        return null;
+        if (characterEncoding==null){
+            characterEncoding=context.getRequestCharacterEncoding();
+        }
+        return characterEncoding;
     }
 
     @Override
     public void setCharacterEncoding(String env) throws UnsupportedEncodingException {
-
+        try {
+            Charset.forName(env);
+        }catch (Throwable throwable){
+            throw new UnsupportedEncodingException(" error charset ");
+        }
+        characterEncoding=env;
     }
 
     @Override
     public int getContentLength() {
-        return 0;
+        return getIntHeader(HttpHeadConstant.H_CONT_LEN);
     }
 
     @Override
     public long getContentLengthLong() {
-        return 0;
+        String val=getHeader(HttpHeadConstant.H_CONT_LEN);
+        if (val==null){
+            return -1;
+        }else {
+            return Long.parseLong(val);
+        }
     }
 
     @Override
     public String getContentType() {
-        return null;
+        return getHeader(HttpHeadConstant.H_CONT_TYPE);
     }
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
-        return null;
+        if (!inputStream.isReady()){
+            throw new IOException("this stream is not available");
+        }
+        return inputStream;
     }
 
     @Override
@@ -236,62 +316,78 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getProtocol() {
-        return null;
+        return pair.getRequsetVersion();
     }
 
     @Override
     public String getScheme() {
-        return null;
+        return pair.getSchema();
     }
 
     @Override
     public String getServerName() {
-        return null;
+        String host=getHeader(HttpHeadConstant.H_HOST);
+        if (host!=null){
+            return host.split(":")[0];
+        }else {
+            return getLocalName();
+        }
     }
 
     @Override
     public int getServerPort() {
-        return 0;
+        String host=getHeader(HttpHeadConstant.H_HOST);
+        if (host!=null){
+            String[] items= host.split(":");
+            if (items.length==2){
+                return Integer.parseInt(items[1]);
+            }else {
+                return getLocalPort();
+            }
+        }else {
+            return getLocalPort();
+        }
+
     }
 
     @Override
     public BufferedReader getReader() throws IOException {
-        return null;
+        return new BufferedReader(new InputStreamReader(getInputStream()));
     }
 
     @Override
     public String getRemoteAddr() {
-        return null;
+        return pair.getRemote().getAddress().toString();
     }
 
     @Override
     public String getRemoteHost() {
-        return null;
+        return pair.getRemote().getHostName();
     }
 
     @Override
     public void setAttribute(String name, Object o) {
-
+        attributes.putIfAbsent(name,o);
     }
 
     @Override
     public void removeAttribute(String name) {
-
+        attributes.remove(name);
     }
 
     @Override
     public Locale getLocale() {
-        return null;
+        return Locale.CHINA;
     }
 
     @Override
     public Enumeration<Locale> getLocales() {
-        return null;
+        return new ArrayEnumeration<>(new Locale[]{Locale.CHINA});
     }
 
     @Override
     public boolean isSecure() {
-        return false;
+        return getScheme().equals("https");
     }
 
     @Override
@@ -306,27 +402,27 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public int getRemotePort() {
-        return 0;
+        return pair.getRemote().getPort();
     }
 
     @Override
     public String getLocalName() {
-        return null;
+        return pair.getLocalHost().getHostName();
     }
 
     @Override
     public String getLocalAddr() {
-        return null;
+        return pair.getLocalHost().getAddress().toString();
     }
 
     @Override
     public int getLocalPort() {
-        return 0;
+        return pair.getLocalHost().getPort();
     }
 
     @Override
     public ServletContext getServletContext() {
-        return null;
+        return context;
     }
 
     @Override
@@ -354,8 +450,10 @@ public class InteralHttpServletRequest implements HttpServletRequest {
         return null;
     }
 
+    protected DispatcherType type=DispatcherType.REQUEST;
+
     @Override
     public DispatcherType getDispatcherType() {
-        return null;
+        return type;
     }
 }

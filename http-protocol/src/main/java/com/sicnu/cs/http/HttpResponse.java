@@ -20,6 +20,10 @@ public interface HttpResponse {
 
     void setStatus(int sc);
 
+    int getStatus();
+
+    String getHead(String name);
+
     OutputStream getBodyOutStream()throws IOException;
 
     Writer getBodyWriter()throws IOException;

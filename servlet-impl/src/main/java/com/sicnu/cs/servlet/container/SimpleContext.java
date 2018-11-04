@@ -3,6 +3,8 @@ package com.sicnu.cs.servlet.container;
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.*;
 import com.sicnu.cs.servlet.http.FilterConfigFaced;
+import com.sicnu.cs.servlet.http.InteralHttpServletRequest;
+import com.sicnu.cs.servlet.http.InteralHttpServletResponse;
 import com.sicnu.cs.servlet.http.ServletConfigFaced;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,6 +13,8 @@ import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -78,6 +82,7 @@ public class SimpleContext extends BaseContext {
         SimpleFilterWrapper wrapper=filters.get(name);
         return new FilterConfigFaced(this,wrapper);
     }
+
 
     private ServletConfig generateServletConfig(String name){
         SimpleServletWrapper wrapper=servlets.get(name);
@@ -499,15 +504,88 @@ public class SimpleContext extends BaseContext {
         responseCharacterEncoding = Charset.forName(encoding);
     }
 
-
     @Override
     protected ServletPosition fillPosition(ServletPosition servletPosition) {
         servletPosition.setContextPath(getContextPath());
         return servletPosition;
     }
 
-    private class InteralServletAcess implements ServletAccess {
+    @Override
+    protected void process(HttpPair pair, ServletPosition position) {
+        HttpServletRequest servletRequest=createHttpRequset(pair,position);
+        HttpServletResponse servletResponse=createHttpResponse(pair,position);
+        Throwable t=null;
 
+
+        InteralFilterChain filterChain=new InteralFilterChain();
+        try {
+            filterChain.doFilter(servletRequest,servletResponse);
+        } catch (Throwable throwable){
+            t=throwable;
+        }
+
+        SimpleServletWrapper wrapper=
+                servlets.get(position.getServletMapping());
+
+        if (t!=null){
+            errorHandle(t,servletRequest,servletResponse);
+        }
+
+        if (wrapper==null){
+            servletResponse.setStatus(404);
+        }else {
+            try {
+                if (!wrapper.isAvailable()){
+                    wrapper.init(generateServletConfig(position.getServletMapping()));
+                }
+                wrapper.service(servletRequest,servletResponse);
+            } catch (Throwable throwable){
+                t=throwable;
+            }
+        }
+
+        if (t!=null){
+            errorHandle(t,servletRequest,servletResponse);
+        }else if (servletRequest.getDispatcherType()==DispatcherType.ASYNC){
+            asyncHanlde(pair,servletRequest,servletResponse);
+        }else {
+            competeHandle(pair,servletRequest,servletResponse);
+        }
+    }
+
+    private void asyncHanlde(HttpPair pair,HttpServletRequest request,HttpServletResponse response){
+        if(response.isCommitted()){
+            return;
+        }
+    }
+
+    private void errorHandle(Throwable t,HttpServletRequest request,HttpServletResponse response){
+        if(response.isCommitted()){
+            return;
+        }
+    }
+
+    private void competeHandle(HttpPair pair,HttpServletRequest request,HttpServletResponse response){
+        if(response.isCommitted()){
+            return;
+        }
+        try {pair.commitResponse();} catch (IOException ignored) {}
+    }
+
+    private HttpServletRequest createHttpRequset(HttpPair pair,ServletPosition position){
+        InteralHttpServletRequest request=
+                new InteralHttpServletRequest(pair,this);
+
+        request.setServletMapping(null);
+        return request;
+    }
+
+    private HttpServletResponse createHttpResponse(HttpPair pair,ServletPosition position){
+        return new InteralHttpServletResponse(pair,this);
+    }
+
+
+    private class InteralServletAcess implements ServletAccess {
         @Override
         public List<String> getUrlPattern(String name) {
             List<String> urls=new ArrayList<>();
@@ -537,11 +615,11 @@ public class SimpleContext extends BaseContext {
     private class InteralFilterChain implements FilterChain{
 
         private Collection<SimpleFilterWrapper> filterWrappers=filters.values();
-        private int cur=0;
-        private int size=0;
+        private int cur;
+        private int size;
         private SimpleFilterWrapper[] wrappers;
 
-        public InteralFilterChain() {
+        InteralFilterChain() {
             cur=0;
             size=filterWrappers.size();
             wrappers=filterWrappers.toArray(new SimpleFilterWrapper[]{});

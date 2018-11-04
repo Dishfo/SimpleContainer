@@ -18,9 +18,7 @@ public class DispatcherHttpRequset extends HttpServletRequestWrapper {
                                  DispatcherType dispatcherType) {
         super(request);
         this.dispatcherType=dispatcherType;
-
     }
-
 
     @Override
     public DispatcherType getDispatcherType() {

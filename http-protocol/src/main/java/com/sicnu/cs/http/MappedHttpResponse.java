@@ -20,7 +20,7 @@ public class MappedHttpResponse implements HttpResponse {
     private ByteArrayOutputStream respStream;
     private String version;
     private String msg;
-    private int status;
+    private int status=200;
     private Charset headCharset;
     private AtomicBoolean committed;
 
@@ -61,6 +61,16 @@ public class MappedHttpResponse implements HttpResponse {
     }
 
     @Override
+    public int getStatus() {
+        return status;
+    }
+
+    @Override
+    public String getHead(String name) {
+        return headers.get(name);
+    }
+
+    @Override
     public OutputStream getBodyOutStream() throws IOException {
         if (oriBody.size()>=Http11Constant.CONTENT_MAX_SIZE){
             throw new IOException("to much data");
@@ -93,14 +103,17 @@ public class MappedHttpResponse implements HttpResponse {
 
     @Override
     public void setHeadEncoding(String encoding) {
-        throw new UnsupportedOperationException("this method need peers speak ," +
-                "so i don't want to impl this");
+        try {
+            headCharset=Charset.forName(encoding);
+        }catch (Throwable ignored){}
     }
 
 
     @Override
     public void outPut() throws IOException {
         if (committed.compareAndSet(false,true)){
+
+            msg=StatusConstant.getMsg(status);
 
             Objects.requireNonNull(msg);
             Objects.requireNonNull(version);

@@ -1,25 +1,86 @@
 package com.sicnu.cs.component;
 
-import com.cs.sicnu.core.protocol.HttpHeadConstant;
 import com.sicnu.cs.http.HttpConnection;
+import com.sicnu.cs.servlet.basis.ClassFinder;
+import com.sicnu.cs.servlet.basis.HttpPair;
+import com.sicnu.cs.servlet.container.*;
 import com.sicnu.cs.wrapper.ChannelWrapper;
 import com.sicnu.cs.wrapper.ReadOpException;
 import com.sicnu.cs.wrapper.WrappersListener;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import javax.servlet.FilterRegistration;
+import javax.servlet.ServletRegistration;
+import javax.servlet.annotation.WebFilter;
+import javax.servlet.annotation.WebInitParam;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.List;
 
 public class ListenrTest {
 
+    private SimpleContext context;
+    private BaseEngine engine;
+
     @Test
-    public void test(){
+    public void test() throws UnknownHostException {
+        engine=new BaseEngine();
+        SimpleHost host=new SimpleHost();
+        engine.addChild(host);
+        host.addAddress(InetAddress.getByName("localhost"));
+
+        context=new SimpleContext("/home/dishfo/mydata/IdeaProjects" +
+                "/servlettest/out/artifacts/servlettest_Web_exploded","/test");
+        host.addChild(context);
+        ClassFinder finder=new
+                ClassFinderImpl(ContextClassLoader.getClassLoader("/home/dishfo/mydata/IdeaProjects/servlettest/out/" +
+                "artifacts/servlettest_Web_exploded/WEB-INF/classes"));
+        context.init();
+        HashMap<String,WebFilter> foundedfileter=new HashMap<>();
+        List<Class> cls=finder.find("/home/dishfo/mydata/IdeaProjects/servlettest/target/classes");
+        for (Class c:cls){
+            if (HttpServlet.class.isAssignableFrom(c)){
+                WebServlet servlet= (WebServlet) c.getAnnotation(WebServlet.class);
+
+                ServletRegistration.Dynamic dynamic=
+                        context.addServlet(servlet.name(),c);
+                dynamic.setLoadOnStartup(servlet.loadOnStartup());
+                dynamic.setAsyncSupported(servlet.asyncSupported());
+                WebInitParam[] initParams=servlet.initParams();
+                for (WebInitParam param:initParams){
+                    dynamic.setInitParameter(param.name(),param.value());
+                }
+                String []urls=servlet.urlPatterns();
+                for (String s:urls){
+                    dynamic.addMapping(s);
+                }
+
+            }else {
+                WebFilter filter= (WebFilter) c.getAnnotation(WebFilter.class);
+                FilterRegistration.Dynamic dynamic=
+                        context.addFilter(filter.filterName(),c);
+                foundedfileter.putIfAbsent(filter.filterName(),filter);
+                ;
+            }
+        }
+
+        foundedfileter.forEach((s, webFilter) -> {
+            FilterRegistration dynamic = context.getFilterRegistration(s);
+            dynamic.addMappingForServletNames(null,false,webFilter.servletNames());
+            dynamic.addMappingForUrlPatterns(null,false,webFilter.urlPatterns());
+        });
+        context.start();
+        System.out.println(cls.size() +"  "+context.getLifeState());
+
         MessageListener listener=new MessageListener(8080);
         listener.setChannelListener(new TestWrapperListener());
         listener.startListen();
+
 
     }
 
@@ -31,38 +92,7 @@ public class ListenrTest {
             System.out.println("the wrapper create");
             HttpConnection connection=new HttpConnection(wrapper);
             connection.setHandler((connection1, request, response) -> {
-
-
-
-                response.setStatus(200);
-                response.setHeader(HttpHeadConstant.H_CONT_ENCODING,
-                        HttpHeadConstant.H_CONE_DEFLATE);
-
-                File file=new File("/home/dishfo/logs/info.log");
-                byte[] data=new byte[0];
-                try {
-                    FileInputStream fileInputStream=
-                            new FileInputStream(file);
-                    data=new byte[fileInputStream.available()];
-                    fileInputStream.read(data);
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    response.getBodyOutStream().write(data);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    response.outPut();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
+                engine.handleRequset(connection,request,response);
             });
             wrapper.setAttributes("conn",connection);
         }
