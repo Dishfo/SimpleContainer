@@ -15,7 +15,7 @@ public class ListEnumeration<T> implements Enumeration<T> {
 
     @Override
     public boolean hasMoreElements() {
-        return cur>=list.size();
+        return cur<list.size();
     }
 
     @Override

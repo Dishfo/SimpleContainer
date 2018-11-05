@@ -72,18 +72,7 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
 
     @Override
     public void addMappingForServletNames(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... servletNames) {
-        if (this.types.size()==0){
-            if (dispatcherTypes==null){
-                types.add(DispatcherType.REQUEST);
-            }else {
-                for (DispatcherType type:dispatcherTypes){
-                    types.add(type==null?DispatcherType.REQUEST:type);
-                }
-            }
-
-            this.isMatchAfter=isMatchAfter;
-        }
-
+        fillTypes(dispatcherTypes, isMatchAfter);
         for (String sname:servletNames){
             List<String> patterns=access.getUrlPattern(sname);
             String contextPath=access.getContexPath();
@@ -101,14 +90,21 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
 
     @Override
     public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... urlPatterns) {
+        fillTypes(dispatcherTypes, isMatchAfter);
+        urls.addAll(Arrays.asList(urlPatterns));
+    }
+
+    private void fillTypes(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter) {
         if (this.types.size()==0){
-            for (DispatcherType type:dispatcherTypes){
-                types.add(type==null?DispatcherType.REQUEST:type);
+            if (dispatcherTypes==null){
+                types.add(DispatcherType.REQUEST);
+            }else {
+                for (DispatcherType type:dispatcherTypes){
+                    types.add(type==null?DispatcherType.REQUEST:type);
+                }
             }
             this.isMatchAfter=isMatchAfter;
         }
-
-        urls.addAll(Arrays.asList(urlPatterns));
     }
 
     public boolean getMatchAfter() {

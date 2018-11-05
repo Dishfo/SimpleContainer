@@ -14,7 +14,7 @@ public class ArrayEnumeration<T> implements Enumeration<T> {
 
     @Override
     public boolean hasMoreElements() {
-        return cur>=array.length;
+        return cur<array.length;
     }
 
     @Override

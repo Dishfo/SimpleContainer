@@ -10,28 +10,35 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.Writer;
 import java.nio.charset.Charset;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Locale;
+import java.util.*;
 
 public class InteralHttpServletResponse implements HttpServletResponse {
 
     private HttpPair pair;
     private ServletContext context;
     private String characterEncoding;
+    private ServletOutputStream outputStream;
+    private PrintWriter writer;
+    private List<Cookie> cookies;
 
     public InteralHttpServletResponse(HttpPair pair,
                                       ServletContext context) {
         this.pair = pair;
         this.context = context;
+        this.cookies=new ArrayList<>();
+        try {
+            outputStream=new ByteServletOutputStream(pair.getOutPutStream());
+            writer=new PrintWriter(outputStream);
+        } catch (IOException e) {
+            outputStream=null;
+        }
     }
 
     @Override
     public void addCookie(Cookie cookie) {
-
+        cookies.add(cookie);
     }
 
     @Override
@@ -102,7 +109,6 @@ public class InteralHttpServletResponse implements HttpServletResponse {
     @Override
     public void setIntHeader(String name, int value) {
         setHeader(name,Integer.toString(value));
-
     }
 
     @Override
@@ -155,13 +161,20 @@ public class InteralHttpServletResponse implements HttpServletResponse {
 
     @Override
     public ServletOutputStream getOutputStream() throws IOException {
-        return new ByteServletOutputStream(pair.getOutPutStream());
+        if (outputStream==null){
+            throw new IOException("out put stream is not available");
+        }else {
+            return outputStream;
+        }
     }
 
     @Override
     public PrintWriter getWriter() throws IOException {
-        Writer writer=pair.getWriter();
-        return new PrintWriter(writer);
+        if (writer==null){
+            throw new IOException(" writer is not available");
+        }else {
+            return new PrintWriter(writer);
+        }
     }
 
     @Override
@@ -186,9 +199,7 @@ public class InteralHttpServletResponse implements HttpServletResponse {
     }
 
     @Override
-    public void setBufferSize(int size) {
-
-    }
+    public void setBufferSize(int size) {}
 
     @Override
     public int getBufferSize() {
@@ -197,6 +208,9 @@ public class InteralHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void flushBuffer() throws IOException {
+        outputStream.flush();
+        writer.flush();
+        pair.setCookies(cookies);
         pair.commitResponse();
     }
 

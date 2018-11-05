@@ -29,14 +29,19 @@ public class InteralHttpServletRequest implements HttpServletRequest {
     private HashMap<String,Object> attributes;
     private String serveltPath;
     private String characterEncoding;
-    ByteServletInputStream inputStream;
+    private HashMap<String,String> paramters;
+    private List<Cookie> cookies;
+
+    private String sessionId=null;
+
     public InteralHttpServletRequest(HttpPair pair,
                                      ServletContext context) {
         this.pair = pair;
         this.context = context;
+        serveltPath=null;
         //serveltPath=context.getContextPath()+"/"+servletMapping.getServletName();
         attributes=new HashMap<>();
-        inputStream=new ByteServletInputStream(pair.getInputData());
+        paramters=new HashMap<>();
     }
 
     public void setServletMapping(HttpServletMapping servletMapping) {
@@ -55,7 +60,7 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public Cookie[] getCookies() {
-        return new Cookie[0];
+        return cookies.toArray(new Cookie[]{});
     }
 
     @Override
@@ -73,12 +78,29 @@ public class InteralHttpServletRequest implements HttpServletRequest {
         }
     }
 
+    public void parseCookie(){
+        Map<String,String> map=new CookieParse().parse(this);
+        cookies=CookFactory.create(map);
+    }
+
+    public void parsePart(){
+
+    }
+
+    public void parseParameters(){
+        String ctype=getContentType();
+        if (ctype.startsWith(HttpHeadConstant.CT_TYPE_form)){
+            paramters.putAll(new MutilPartParam().parse(this));
+        }else if (ctype.startsWith(HttpHeadConstant.CT_TYPE_XXX)){
+            paramters.putAll(new URLFormParam().parse(this));
+        }
+        paramters.putAll(new QueryParam().parse(this));
+    }
+
     @Override
     public String getHeader(String name) {
         return pair.getRequsetHead(name.toLowerCase());
     }
-
-
 
     @Override
     public Enumeration<String> getHeaders(String name) {
@@ -151,7 +173,20 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getRequestedSessionId() {
-        return null;
+        if (sessionId==null){
+            for (Cookie c:cookies){
+                if (c.getName().equals("sessionId")){
+                    sessionId=c.getValue();
+                    return c.getValue();
+                }
+            }
+        }
+
+        if (sessionId==null){
+            sessionId= getParameter("sessionId");
+        }
+
+        return sessionId;
     }
 
     @Override
@@ -183,6 +218,7 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public HttpSession getSession() {
+
         return null;
     }
 
@@ -208,33 +244,38 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public boolean isRequestedSessionIdFromUrl() {
-        return false;
+        return isRequestedSessionIdFromURL();
     }
 
     @Override
-    public boolean authenticate(HttpServletResponse response) throws IOException, ServletException {
-        return false;
+    public boolean authenticate(HttpServletResponse response) {
+        throw new UnsupportedOperationException();
+
     }
 
     @Override
-    public void login(String username, String password) throws ServletException {}
+    public void login(String username, String password) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
-    public void logout() throws ServletException {}
+    public void logout() {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
-    public Collection<Part> getParts() throws IOException, ServletException {
+    public Collection<Part> getParts() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Part getPart(String name) {
         return null;
     }
 
     @Override
-    public Part getPart(String name) throws IOException, ServletException {
-        return null;
-    }
-
-    @Override
-    public <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) throws IOException, ServletException {
-        return null;
+    public <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -283,11 +324,14 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getContentType() {
-        return getHeader(HttpHeadConstant.H_CONT_TYPE);
+        String val=getHeader(HttpHeadConstant.H_CONT_TYPE);
+        return val==null?HttpHeadConstant.CT_TYPE_text:val;
     }
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
+        ByteServletInputStream inputStream=
+                new ByteServletInputStream(pair.getInputData());
         if (!inputStream.isReady()){
             throw new IOException("this stream is not available");
         }
@@ -296,22 +340,34 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getParameter(String name) {
-        return null;
+        return paramters.get(name);
     }
 
     @Override
     public Enumeration<String> getParameterNames() {
-        return null;
+        List<String> list=new ArrayList<>(paramters.keySet());
+        return new ListEnumeration<>(list);
     }
 
     @Override
     public String[] getParameterValues(String name) {
-        return new String[0];
+        String val=paramters.get(name);
+        if (val==null){
+            return new String[0];
+        }else {
+            return val.split(",");
+        }
     }
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        return null;
+        Map<String,String[]> result=new HashMap<>();
+        Enumeration<String> names=getParameterNames();
+        while (names.hasMoreElements()){
+            String name=names.nextElement();
+            result.put(name,getParameterValues(name));
+        }
+        return result;
     }
 
     @Override
@@ -392,7 +448,7 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public RequestDispatcher getRequestDispatcher(String path) {
-        return null;
+        return context.getRequestDispatcher(path);
     }
 
     @Override
@@ -450,7 +506,7 @@ public class InteralHttpServletRequest implements HttpServletRequest {
         return null;
     }
 
-    protected DispatcherType type=DispatcherType.REQUEST;
+    private DispatcherType type=DispatcherType.REQUEST;
 
     @Override
     public DispatcherType getDispatcherType() {

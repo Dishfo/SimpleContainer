@@ -1,19 +1,64 @@
 package com.sicnu.cs.servlet.basis;
 
+import com.sicnu.cs.servlet.http.SessionManager;
 import org.junit.Test;
 
-import java.net.URI;
+import javax.servlet.http.HttpSession;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
+import java.util.TimeZone;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.LongAdder;
 
 public class ServletTest {
 
     @Test
     public void test(){
-        String s="http://dwad/%E5%87%A0%E5%8F%B7";
-        URI uri=URI.create(s);
-        System.out.println(uri.getPath());
-        Locale locale=new Locale("zh","CN");
-        System.out.println(locale.getCountry() + locale.getLanguage());
+        Date date=new Date();
+        DateFormat format= new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss z",
+                Locale.ENGLISH);
+        format.setTimeZone(TimeZone.getTimeZone("GMT"));
+        System.out.println(format.format(date));
+
+        SessionManager manager=new SessionManager(null);
+        final ConcurrentLinkedQueue<String> queue=new ConcurrentLinkedQueue<>();
+        for (int i=0;i<300;i++){
+            new Thread(() -> {
+                String id=manager.createSession();
+                queue.add(id);
+                id=manager.createSession();
+                queue.add(id);
+            }).start();
+        }
+
+        LongAdder gethit=new LongAdder();
+
+        for (int i=400;i>0;i--){
+            String id=queue.poll();
+            Thread a=new Thread(() -> {
+                HttpSession session=manager.getSession(id);
+                if (session!=null){
+                    gethit.add(1);
+                }
+            });
+
+            Thread b=new Thread(() -> {
+                System.out.println("change"+(manager.changeId(id)==null));
+
+            });
+
+            a.start();
+            b.start();
+        }
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("end"+gethit.longValue());
     }
 }
 

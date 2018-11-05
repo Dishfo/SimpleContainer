@@ -1,17 +1,16 @@
 package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
+import com.cs.sicnu.core.protocol.HttpHeadConstant;
 import com.sicnu.cs.http.HttpConnection;
 import com.sicnu.cs.http.HttpRequest;
 import com.sicnu.cs.http.HttpResponse;
+import com.sicnu.cs.servlet.basis.HttpPair;
 import com.sicnu.cs.servlet.basis.ServletMap;
 import com.sicnu.cs.servlet.basis.ServletPosition;
-import com.sicnu.cs.servlet.basis.HttpPair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-
-import javax.servlet.Servlet;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -56,6 +55,12 @@ public class BaseEngine extends RegisterContainer implements Engine {
         }catch (Throwable t){
             response.setStatus(400);
             try {response.outPut();} catch (IOException ignored) {}
+        }
+
+        String conn=response.getHead(HttpHeadConstant.H_CONN);
+
+        if (conn!=null&&conn.equals(HttpHeadConstant.CONN_CLOSE)){
+            connection.close();
         }
     }
 

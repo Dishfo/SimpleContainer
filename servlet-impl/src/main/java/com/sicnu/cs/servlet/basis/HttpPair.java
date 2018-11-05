@@ -3,7 +3,9 @@ package com.sicnu.cs.servlet.basis;
 import com.sicnu.cs.http.HttpConnection;
 import com.sicnu.cs.http.HttpRequest;
 import com.sicnu.cs.http.HttpResponse;
+import com.sicnu.cs.servlet.http.CookFactory;
 
+import javax.servlet.http.Cookie;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -126,9 +128,19 @@ public class HttpPair {
 
     public void commitResponse()throws IOException{
         if (committed.compareAndSet(false,true)){
-
+            if (cookies!=null){
+                for (Cookie c:cookies){
+                    response.addCookie(CookFactory.resolve(c));
+                }
+            }
             response.outPut();
         }
+    }
+
+    private List<Cookie> cookies;
+
+    public void setCookies(List<Cookie> cookies) {
+        this.cookies = cookies;
     }
 
     public boolean isCommitted(){

@@ -8,9 +8,7 @@ import com.sicnu.cs.http.encode.EncodingUtil;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MappedHttpResponse implements HttpResponse {
@@ -23,12 +21,14 @@ public class MappedHttpResponse implements HttpResponse {
     private int status=200;
     private Charset headCharset;
     private AtomicBoolean committed;
+    private List<String> cookies;
 
     MappedHttpResponse(ByteArrayOutputStream respStream) {
         this.respStream = respStream;
         oriBody=new ByteArrayOutputStream(Http11Constant.CONTENT_MAX_SIZE);
         committed=new AtomicBoolean(false);
         headCharset=Charset.forName("UTF-8");
+        cookies=new ArrayList<>();
     }
 
     @Override
@@ -108,6 +108,12 @@ public class MappedHttpResponse implements HttpResponse {
         }catch (Throwable ignored){}
     }
 
+    @Override
+    public void addCookie(String s) {
+        if (!StringUtils.isEmpty(s))
+            cookies.add(s);
+    }
+
 
     @Override
     public void outPut() throws IOException {
@@ -132,6 +138,14 @@ public class MappedHttpResponse implements HttpResponse {
                 respStream.write(crtl);
             }
 
+            //set-cookie 写入
+            for (String cookie:cookies){
+                respStream.write(HttpHeadConstant.H_SET_COOKIE.getBytes());
+                respStream.write(headsplit);
+                respStream.write(cookie.getBytes(headCharset));
+                respStream.write(crtl);
+            }
+
             String encoding=headers.get(HttpHeadConstant.H_CONT_ENCODING);
             if (encoding==null){
                 encoding=HttpHeadConstant.H_CONE_IDENTITY;
@@ -148,6 +162,7 @@ public class MappedHttpResponse implements HttpResponse {
 
             String lenline=HttpHeadConstant.H_CONT_LEN+": "
                     +body.length+"\r\n";
+
             respStream.write(lenline.getBytes(headCharset));
             respStream.write(crtl);
 

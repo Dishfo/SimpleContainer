@@ -6,8 +6,10 @@ import com.sicnu.cs.servlet.http.FilterConfigFaced;
 import com.sicnu.cs.servlet.http.InteralHttpServletRequest;
 import com.sicnu.cs.servlet.http.InteralHttpServletResponse;
 import com.sicnu.cs.servlet.http.ServletConfigFaced;
+import com.sicnu.cs.servlet.intefun.ConnectionFilter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.omg.PortableInterceptor.HOLDING;
 
 import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
@@ -18,7 +20,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -37,6 +38,9 @@ public class SimpleContext extends BaseContext {
     private ConcurrentHashMap<String, String> initParameters;
 
     private ContextClassLoader contextClassLoader;
+    private List<Filter> interalFilters;
+
+    private int sessionTime=3000;
 
     public SimpleContext(String base_path, String contextPath) {
         this.contextPath = contextPath;
@@ -48,13 +52,24 @@ public class SimpleContext extends BaseContext {
         servlets = new ConcurrentHashMap<>();
         attributies = new ConcurrentHashMap<>();
         initParameters = new ConcurrentHashMap<>();
+        interalFilters=new ArrayList<>();
         vertifyFilePath();
         contextClassLoader=ContextClassLoader.getClassLoader(classpath);
+        loadInteral();
     }
 
+    /**
+     * 加载一部分context 内部使用的servlet filter
+     *
+     */
+
+    private void loadInteral(){
+        interalFilters.add(new ConnectionFilter());
+    }
 
     @Override
     protected void startInteral() {
+
         servlets.forEach((k,v)->{
             if (!v.isAvailable()){
                 try {
@@ -145,7 +160,7 @@ public class SimpleContext extends BaseContext {
     }
 
     @Override
-    public URL getResource(String path) throws MalformedURLException {
+    public URL getResource(String path) {
         throw new UnsupportedOperationException("getResourcePaths()");
     }
 
@@ -160,7 +175,6 @@ public class SimpleContext extends BaseContext {
     }
 
     private RequestDispatcher getServletDispatcherTypeByName(String name) {
-
         return null;
     }
 
@@ -334,8 +348,6 @@ public class SimpleContext extends BaseContext {
     }
 
 
-
-
     private <T extends Servlet> String getServletName(Class<T> clazz) throws ServletException {
         String name;
         WebServlet webServlet = clazz.getAnnotation(WebServlet.class);
@@ -392,16 +404,13 @@ public class SimpleContext extends BaseContext {
     @Override
     public <T extends Filter> T createFilter(Class<T> clazz) throws ServletException {
         T filter;
-
         try {
             filter=clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
             throw new ServletException("filter create failed",e);
         }
-
         return filter;
     }
-
 
     @Override
     public FilterRegistration getFilterRegistration(String filterName) {
@@ -434,9 +443,7 @@ public class SimpleContext extends BaseContext {
     }
 
     @Override
-    public void addListener(String className) {
-
-    }
+    public void addListener(String className) {}
 
     @Override
     public <T extends EventListener> void addListener(T t) {
@@ -473,12 +480,12 @@ public class SimpleContext extends BaseContext {
 
     @Override
     public int getSessionTimeout() {
-        return 0;
+        return sessionTime;
     }
 
     @Override
     public void setSessionTimeout(int sessionTimeout) {
-
+        this.sessionTime=sessionTimeout;
     }
 
     @Override
@@ -516,8 +523,13 @@ public class SimpleContext extends BaseContext {
         HttpServletResponse servletResponse=createHttpResponse(pair,position);
         Throwable t=null;
 
+        InteralFilterChain interalFun=new InteralFilterChain(interalFilters);
+        InteralFilterChain filterChain=new InteralFilterChain(filters.values());
 
-        InteralFilterChain filterChain=new InteralFilterChain();
+        try {
+            interalFun.doFilter(servletRequest,servletResponse);
+        } catch (IOException | ServletException ignored) {}
+
         try {
             filterChain.doFilter(servletRequest,servletResponse);
         } catch (Throwable throwable){
@@ -563,12 +575,17 @@ public class SimpleContext extends BaseContext {
         if(response.isCommitted()){
             return;
         }
+        try {
+            response.getWriter().write(t.toString());
+            response.sendError(500);
+        } catch (IOException ignored) {}
     }
 
     private void competeHandle(HttpPair pair,HttpServletRequest request,HttpServletResponse response){
         if(response.isCommitted()){
             return;
         }
+        try {response.flushBuffer();} catch (IOException ignored) {}
         try {pair.commitResponse();} catch (IOException ignored) {}
     }
 
@@ -576,14 +593,17 @@ public class SimpleContext extends BaseContext {
         InteralHttpServletRequest request=
                 new InteralHttpServletRequest(pair,this);
 
+        request.parseParameters();
+        request.parseCookie();
+
         request.setServletMapping(null);
+
         return request;
     }
 
     private HttpServletResponse createHttpResponse(HttpPair pair,ServletPosition position){
         return new InteralHttpServletResponse(pair,this);
     }
-
 
     private class InteralServletAcess implements ServletAccess {
         @Override
@@ -602,7 +622,6 @@ public class SimpleContext extends BaseContext {
         }
     }
 
-
     @Override
     public void setParent(Container container) {
         if (!(container instanceof Host)){
@@ -611,18 +630,15 @@ public class SimpleContext extends BaseContext {
         super.setParent(container);
     }
 
-
     private class InteralFilterChain implements FilterChain{
-
-        private Collection<SimpleFilterWrapper> filterWrappers=filters.values();
         private int cur;
         private int size;
-        private SimpleFilterWrapper[] wrappers;
+        private Filter[] wrappers;
 
-        InteralFilterChain() {
+        InteralFilterChain(Collection<? extends Filter> filterWrappers) {
             cur=0;
             size=filterWrappers.size();
-            wrappers=filterWrappers.toArray(new SimpleFilterWrapper[]{});
+            wrappers=filterWrappers.toArray(new Filter[]{});
         }
 
         @Override
@@ -631,7 +647,6 @@ public class SimpleContext extends BaseContext {
                 return;
             }
             wrappers[cur++].doFilter(request,response,this);
-            doFilter(request,response);
         }
     }
 }

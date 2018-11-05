@@ -36,6 +36,8 @@ public interface HttpResponse {
 
     void setHeadEncoding(String encoding);
 
+    void addCookie(String s);
+
     void outPut() throws IOException;
 
 }

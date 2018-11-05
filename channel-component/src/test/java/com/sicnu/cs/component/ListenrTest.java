@@ -2,7 +2,6 @@ package com.sicnu.cs.component;
 
 import com.sicnu.cs.http.HttpConnection;
 import com.sicnu.cs.servlet.basis.ClassFinder;
-import com.sicnu.cs.servlet.basis.HttpPair;
 import com.sicnu.cs.servlet.container.*;
 import com.sicnu.cs.wrapper.ChannelWrapper;
 import com.sicnu.cs.wrapper.ReadOpException;
