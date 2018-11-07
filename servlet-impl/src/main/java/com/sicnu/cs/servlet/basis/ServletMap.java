@@ -1,5 +1,11 @@
 package com.sicnu.cs.servlet.basis;
 
+import com.sicnu.cs.servlet.basis.map.NodeAcess;
+import com.sicnu.cs.servlet.basis.map.NodeAcessImpl;
+import com.sicnu.cs.servlet.basis.map.RootNode;
+import com.sicnu.cs.servlet.basis.map.ServletSearch;
+
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,13 +17,13 @@ public class ServletMap {
     public static ServletMap getInstance() {
         return ourInstance;
     }
+    private RootNode rootNode;
+    private NodeAcess acess;
 
     private ServletMap() {
-
+        rootNode=new RootNode();
+        acess=new NodeAcessImpl();
     }
-
-    private ConcurrentHashMap<String,ServletPosition> pos=new ConcurrentHashMap<>();
-
 
     /**
      *
@@ -25,13 +31,30 @@ public class ServletMap {
      * @param position describe servlet info
      */
     public void addUrl(String url,ServletPosition position){
-        pos.put(url,position);
+        acess.add(rootNode,position,url);
     }
 
     public ServletPosition findServlet(URI uri){
-        List<ServletPosition> positions=new ArrayList<>(pos.values());
-        return positions.get(0);
+        if (uri==null){
+            return null;
+        }
+        try {
+            ServletSearch servletSearch=acess.find(rootNode,uri.toURL());
+            if (servletSearch.isFound()) {
+                ServletPosition position=new ServletPosition();
+                position.setServletName(servletSearch.getServletName());
+                position.setContextPath(servletSearch.getContextPath());
+                position.addHost(servletSearch.getHost());
+                return position;
+            }
+        } catch (MalformedURLException e) {
+            return null;
+        }
+        return null;
     }
+
+
+
 
 
 

@@ -28,6 +28,7 @@ public class ClassFinderTest {
 
         SimpleContext context=new SimpleContext("/home/dishfo/mydata/IdeaProjects/servlettest/out/artifacts/servlettest_Web_exploded","/test");
         host.addChild(context);
+        context.setSessionTimeout(5);
         ClassFinder finder=new
                 ClassFinderImpl(ContextClassLoader.getClassLoader("/home/dishfo/mydata/IdeaProjects/servlettest/out/" +
                 "artifacts/servlettest_Web_exploded/WEB-INF/classes"));

@@ -21,5 +21,4 @@ public class UrlUtil {
 
         return null;
     }
-
 }

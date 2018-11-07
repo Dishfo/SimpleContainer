@@ -24,15 +24,34 @@ public class ServletTest {
 
         SessionManager manager=new SessionManager(null);
         final ConcurrentLinkedQueue<String> queue=new ConcurrentLinkedQueue<>();
-        for (int i=0;i<300;i++){
+        for (int i=0;i<200;i++){
             new Thread(() -> {
                 String id=manager.createSession();
                 queue.add(id);
                 id=manager.createSession();
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 queue.add(id);
             }).start();
         }
 
+
+        for (int i=0;i<100;i++){
+            new Thread(() -> {
+                String id=manager.createSession();
+
+
+                queue.add(id);
+            }).start();
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         LongAdder gethit=new LongAdder();
 
         for (int i=400;i>0;i--){

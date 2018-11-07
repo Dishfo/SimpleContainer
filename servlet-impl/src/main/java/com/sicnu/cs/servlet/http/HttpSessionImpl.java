@@ -64,6 +64,7 @@ public class HttpSessionImpl implements HttpSession {
         return inactiveInteral;
     }
 
+    @Deprecated
     @Override
     public HttpSessionContext getSessionContext() {
         return null;
@@ -114,7 +115,7 @@ public class HttpSessionImpl implements HttpSession {
     @Override
     public void invalidate() {
         if (!isActive.compareAndSet(true,false)){
-            throw new IllegalStateException();
+            return;
         }
         context=null;
         attributes.clear();
@@ -124,6 +125,4 @@ public class HttpSessionImpl implements HttpSession {
     public boolean isNew() {
         return create==access;
     }
-
-
 }

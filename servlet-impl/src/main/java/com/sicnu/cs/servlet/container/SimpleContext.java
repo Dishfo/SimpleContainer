@@ -2,14 +2,12 @@ package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.*;
-import com.sicnu.cs.servlet.http.FilterConfigFaced;
-import com.sicnu.cs.servlet.http.InteralHttpServletRequest;
-import com.sicnu.cs.servlet.http.InteralHttpServletResponse;
-import com.sicnu.cs.servlet.http.ServletConfigFaced;
+import com.sicnu.cs.servlet.http.*;
 import com.sicnu.cs.servlet.intefun.ConnectionFilter;
+import com.sicnu.cs.servlet.intefun.ExpiresSessionFilter;
+import com.sicnu.cs.servlet.intefun.SessionFilter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.omg.PortableInterceptor.HOLDING;
 
 import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
@@ -39,6 +37,7 @@ public class SimpleContext extends BaseContext {
 
     private ContextClassLoader contextClassLoader;
     private List<Filter> interalFilters;
+    private SessionManager manager;
 
     private int sessionTime=3000;
 
@@ -53,6 +52,7 @@ public class SimpleContext extends BaseContext {
         attributies = new ConcurrentHashMap<>();
         initParameters = new ConcurrentHashMap<>();
         interalFilters=new ArrayList<>();
+        manager=new SessionManager(this,100);
         vertifyFilePath();
         contextClassLoader=ContextClassLoader.getClassLoader(classpath);
         loadInteral();
@@ -60,11 +60,12 @@ public class SimpleContext extends BaseContext {
 
     /**
      * 加载一部分context 内部使用的servlet filter
-     *
      */
 
     private void loadInteral(){
         interalFilters.add(new ConnectionFilter());
+        interalFilters.add(new SessionFilter(this));
+        interalFilters.add(new ExpiresSessionFilter(manager));
     }
 
     @Override
@@ -537,7 +538,7 @@ public class SimpleContext extends BaseContext {
         }
 
         SimpleServletWrapper wrapper=
-                servlets.get(position.getServletMapping());
+                servlets.get(position.getServletName());
 
         if (t!=null){
             errorHandle(t,servletRequest,servletResponse);
@@ -548,7 +549,7 @@ public class SimpleContext extends BaseContext {
         }else {
             try {
                 if (!wrapper.isAvailable()){
-                    wrapper.init(generateServletConfig(position.getServletMapping()));
+                    wrapper.init(generateServletConfig(position.getServletName()));
                 }
                 wrapper.service(servletRequest,servletResponse);
             } catch (Throwable throwable){
@@ -595,7 +596,7 @@ public class SimpleContext extends BaseContext {
 
         request.parseParameters();
         request.parseCookie();
-
+        request.setSessionAcess(manager);
         request.setServletMapping(null);
 
         return request;

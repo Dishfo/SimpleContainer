@@ -31,6 +31,8 @@ public class InteralHttpServletRequest implements HttpServletRequest {
     private String characterEncoding;
     private HashMap<String,String> paramters;
     private List<Cookie> cookies;
+    private SessionAcess sessionAcess;
+    private String expiresSessionId;
 
     private String sessionId=null;
 
@@ -42,6 +44,11 @@ public class InteralHttpServletRequest implements HttpServletRequest {
         //serveltPath=context.getContextPath()+"/"+servletMapping.getServletName();
         attributes=new HashMap<>();
         paramters=new HashMap<>();
+        expiresSessionId=null;
+    }
+
+    public void setSessionAcess(SessionAcess acess){
+        this.sessionAcess=acess;
     }
 
     public void setServletMapping(HttpServletMapping servletMapping) {
@@ -213,18 +220,40 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     @Override
     public HttpSession getSession(boolean create) {
-        return null;
+        HttpSession session=getSession();
+        if (session==null&&create){
+            sessionId=sessionAcess.createSession();
+            session=getSession();
+        }
+        return session;
     }
 
     @Override
     public HttpSession getSession() {
+        String sessionId=getRequestedSessionId();
+        if (sessionId==null){
+            return null;
+        }else {
+            HttpSession session=sessionAcess.getSession(sessionId);
+            if (session==null){
+                expiresSessionId=sessionId;
+            }
+            return session;
+        }
+    }
 
-        return null;
+    public String getExpiresSessionId() {
+        return expiresSessionId;
     }
 
     @Override
     public String changeSessionId() {
-        return null;
+        String sessionId=getRequestedSessionId();
+        if (sessionId==null){
+            return null;
+        }else {
+            return sessionAcess.changeId(sessionId);
+        }
     }
 
     @Override

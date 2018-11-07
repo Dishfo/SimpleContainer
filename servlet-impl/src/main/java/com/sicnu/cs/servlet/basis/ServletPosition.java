@@ -30,11 +30,11 @@ public class ServletPosition {
         this.contextPath = contextPath;
     }
 
-    public String  getServletMapping() {
+    public String getServletName() {
         return servletName;
     }
 
-    public void setServletMapping(String  servletName) {
+    public void setServletName(String  servletName) {
         this.servletName = servletName;
     }
 }

@@ -73,6 +73,7 @@ public class ListenrTest {
             dynamic.addMappingForServletNames(null,false,webFilter.servletNames());
             dynamic.addMappingForUrlPatterns(null,false,webFilter.urlPatterns());
         });
+        context.setSessionTimeout(5);
         context.start();
         System.out.println(cls.size() +"  "+context.getLifeState());
 

@@ -162,13 +162,13 @@ public class SimpleServletWrapper extends
 
     private void registerUrl(String url){
         ServletPosition position=new ServletPosition();
-        position.setServletMapping(getName());
+        position.setServletName(getName());
         onRegister(new String[]{url},position);
     }
 
     private void registerUrl(String[] urls){
         ServletPosition position=new ServletPosition();
-        position.setServletMapping(getName());
+        position.setServletName(getName());
         onRegister(urls,position);
     }
 

@@ -10,7 +10,7 @@ import java.util.Map;
 
 public  class CookFactory {
 
-    static List<Cookie> create(Map<String,String> cookMap, SessionCookieConfig cookieConfig){
+    private static List<Cookie> create(Map<String, String> cookMap, SessionCookieConfig cookieConfig){
         List<Cookie> cookies=new ArrayList<>();
         cookMap.forEach((k, v) -> {
             Cookie cookie=new Cookie(k,v);

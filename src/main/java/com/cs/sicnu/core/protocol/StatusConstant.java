@@ -11,6 +11,7 @@ public final class StatusConstant {
         msgMap.put(HttpServletResponse.SC_OK,"OK");
         msgMap.put(HttpServletResponse.SC_SEE_OTHER,"SEE_OTHER");
         msgMap.put(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,"INTERAL_ERROR");
+        msgMap.put(HttpServletResponse.SC_BAD_REQUEST,"BAD_REQUEST");
     }
 
     public static String  getMsg(int sc){

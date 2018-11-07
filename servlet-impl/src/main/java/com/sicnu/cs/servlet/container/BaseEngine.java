@@ -2,6 +2,7 @@ package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
 import com.cs.sicnu.core.protocol.HttpHeadConstant;
+import com.cs.sicnu.core.utils.StringUtils;
 import com.sicnu.cs.http.HttpConnection;
 import com.sicnu.cs.http.HttpRequest;
 import com.sicnu.cs.http.HttpResponse;
@@ -30,8 +31,7 @@ public class BaseEngine extends RegisterContainer implements Engine {
     public void handleRequset(HttpConnection connection,
                               HttpRequest request,
                               HttpResponse response) {
-
-        String url=request.getUrl();
+        String url=getURI(connection,request);
         try {
             URI uri=URI.create(url);
             ServletPosition position=servletMap.findServlet(uri);
@@ -83,7 +83,21 @@ public class BaseEngine extends RegisterContainer implements Engine {
         for (String s:url){
             logger.debug(" url == "+s);
         }
-        ServletMap.getInstance().addUrl(url[0],position);
-        logger.debug(position.getHost()+""+position.getContextPath()+position.getServletMapping());
+        ServletMap map=ServletMap.getInstance();
+        for (String s:url){
+            map.addUrl(s,position);
+        }
+    }
+
+    private String getURI(HttpConnection connection,HttpRequest request){
+        String schema=connection.getSchema();
+        String host=request.getHeader(HttpHeadConstant.H_HOST);
+        String url=request.getUrl();
+        if (StringUtils.isEmpty(schema)
+                ||StringUtils.isEmpty(host)||
+        StringUtils.isEmpty(url)){
+            throw new IllegalArgumentException(" is not a vaild url ");
+        }
+        return schema+"://"+host+url;
     }
 }

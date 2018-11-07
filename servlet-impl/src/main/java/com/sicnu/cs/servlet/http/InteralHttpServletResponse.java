@@ -22,6 +22,7 @@ public class InteralHttpServletResponse implements HttpServletResponse {
     private ServletOutputStream outputStream;
     private PrintWriter writer;
     private List<Cookie> cookies;
+    private Throwable throwable;
 
     public InteralHttpServletResponse(HttpPair pair,
                                       ServletContext context) {
@@ -230,6 +231,14 @@ public class InteralHttpServletResponse implements HttpServletResponse {
         pair.clearBody();
     }
 
+
+    public Throwable getThrowable() {
+        return throwable;
+    }
+
+    public void setThrowable(Throwable throwable) {
+        this.throwable = throwable;
+    }
 
     @Override
     public void setLocale(Locale loc) {
