@@ -14,7 +14,7 @@ dish-config.xml 为实例配置文件
 
 在项目目录下 mvn install -DskipTests 就可以打包一个可运行的jar
 
-
+当前版本功能不完善 且有大量bug
 
 
 
