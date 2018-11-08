@@ -3,7 +3,9 @@ package com.sicnu.cs.servlet.container;
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.*;
 import com.sicnu.cs.servlet.basis.map.ServletSearch;
-import com.sicnu.cs.servlet.http.*;
+import com.sicnu.cs.servlet.http.InteralHttpServletRequest;
+import com.sicnu.cs.servlet.http.InteralHttpServletResponse;
+import com.sicnu.cs.servlet.http.SessionManager;
 import com.sicnu.cs.servlet.intefun.ConnectionFilter;
 import com.sicnu.cs.servlet.intefun.ExpiresSessionFilter;
 import com.sicnu.cs.servlet.intefun.SessionFilter;
@@ -16,11 +18,15 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SimpleContext extends BaseContext {
 
@@ -39,6 +45,8 @@ public class SimpleContext extends BaseContext {
     private SessionManager manager;
     private ThreadLocal<HandleList> handleListThreadLocal;
 
+    private AtomicBoolean filterChange;
+
     private int sessionTime=3000;
 
     public SimpleContext(String base_path, String contextPath) {
@@ -53,6 +61,7 @@ public class SimpleContext extends BaseContext {
         initParameters = new ConcurrentHashMap<>();
         interalFilters=new ArrayList<>();
         manager=new SessionManager(this,100);
+
         vertifyFilePath();
         handleListThreadLocal=new InheritableThreadLocal<>();
         contextClassLoader=ContextClassLoader.getClassLoader(classpath);
@@ -71,7 +80,6 @@ public class SimpleContext extends BaseContext {
 
     @Override
     protected void startInteral() {
-
         servlets.forEach((k,v)->{
             if (!v.isAvailable()){
                 try {
@@ -89,6 +97,7 @@ public class SimpleContext extends BaseContext {
                 } catch (ServletException ignored) {}
             }
         });
+        filterChange=new AtomicBoolean();
     }
 
     private String classpath;
@@ -376,6 +385,9 @@ public class SimpleContext extends BaseContext {
         SimpleFilterWrapper wrapper=new SimpleFilterWrapper(filter,filterName,new InteralServletAcess());
         if (filters.putIfAbsent(filterName,wrapper)==null){
             addChild(wrapper);
+            if (filterChange!=null){
+                filterChange.compareAndSet(false,true);
+            }
             return wrapper;
         }
         return null;
@@ -517,7 +529,16 @@ public class SimpleContext extends BaseContext {
             handleList=handleListThreadLocal.get();
         }
 
+        InteralHandleList interalHandleList= (InteralHandleList) handleList;
+        if (interalHandleList.isNeedRefresh()){
+            interalHandleList.refresh();
+            logger.debug("context refresh");
+        }
+
+        logger.debug("context handle "+handleList);
         handleList.nextNode(servletRequest,servletResponse);
+
+        interalHandleList.reset();
 
     }
 
@@ -560,9 +581,13 @@ public class SimpleContext extends BaseContext {
         @Override
         public void end(HttpServletRequest req, HttpServletResponse resp) {
             super.end(req, resp);
-            if (resp.isCommitted()){
+            if (!resp.isCommitted()){
                 try {resp.flushBuffer();} catch (IOException ignored) {}
             }
+        }
+
+        void reset(){
+            cur=0;
         }
 
         @Override
@@ -571,27 +596,36 @@ public class SimpleContext extends BaseContext {
             if (resp.isCommitted()){
                 return;
             }
+
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             PrintWriter writer;
             try {writer=resp.getWriter();} catch (IOException e) {return;}
             StackTraceElement[] elements=throwable.getStackTrace();
+            int cnt=elements.length;
 
-            for (StackTraceElement element:elements){
-                writer.println(element.toString());
+            writer.print(elements[0].toString());
+            writer.println("  "+throwable.toString());
+
+            for (int i=0;i<cnt;i++){
+                writer.println(elements[i].toString());
+            }
+
+        }
+
+        void refresh(){
+            while (filterChange.compareAndSet(true,false)){
+                for (HandleNode node:nodes){
+                    ((BaseHandleNode)node).refresh();
+                }
             }
         }
 
-        public void refresh(){
-
+        boolean isNeedRefresh(){
+            return filterChange.get();
         }
-
-        public boolean isNeedRefresh(){
-            return false;
-        }
-
         void addNode(HandleNode node){
             nodes.add(node);
         }
-
     }
 
     private class HandlelistFactory {
@@ -607,24 +641,46 @@ public class SimpleContext extends BaseContext {
     }
 
     private class InteralFilterNode extends BaseHandleNode{
+
+        InteralFilterChain chain=null;
+
+        @Override
+        public void refresh() {
+            chain=null;
+        }
+
         @Override
         public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
-            InteralFilterChain chain=createInterChain();
+            if (chain==null){
+                chain=createInterChain();
+            }
             chain.doFilter(req,resp);
             through=chain.isThrough();
         }
     }
 
     private class UserFilterNode extends BaseHandleNode{
+
+        InteralFilterChain chain=null;
+
+        @Override
+        public void refresh() {
+            chain=null;
+        }
         @Override
         public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
-            InteralFilterChain chain=createUserChain();
+            if (chain==null){
+                chain=createUserChain();
+            }
             chain.doFilter(req,resp);
             through=chain.isThrough();
         }
     }
 
     private class ServletNode extends BaseHandleNode{
+
+        @Override
+        public void refresh() {}
 
         @Override
         public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
@@ -638,7 +694,6 @@ public class SimpleContext extends BaseContext {
             }
 
             wrapper.service(req,resp);
-
         }
     }
 
