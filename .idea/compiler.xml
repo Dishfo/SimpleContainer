@@ -16,14 +16,15 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="channelComponent" />
+        <module name="allbase" />
+        <module name="channelcomponent" />
         <module name="channelwrapper" />
         <module name="httpprotocol" />
         <module name="servletimpl" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="channelComponent" target="8" />
+      <module name="allbase" target="8" />
       <module name="channelcomponent" target="8" />
       <module name="channelwrapper" target="8" />
       <module name="httpprotocol" target="8" />

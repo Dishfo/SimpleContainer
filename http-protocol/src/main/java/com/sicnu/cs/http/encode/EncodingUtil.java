@@ -1,10 +1,10 @@
 package com.sicnu.cs.http.encode;
 
 import com.cs.sicnu.core.protocol.HttpHeadConstant;
-import com.sun.istack.internal.NotNull;
+
 
 public class EncodingUtil {
-    public static @NotNull byte[] encoding(byte[] bytes, String alo){
+    public static  byte[] encoding(byte[] bytes, String alo){
         switch (alo) {
             case HttpHeadConstant.H_CONE_GZIP:
                 return new GZIPCompress().encode(bytes);

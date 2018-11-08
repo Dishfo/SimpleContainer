@@ -2,7 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/channel-component/channelComponent.iml" filepath="$PROJECT_DIR$/channel-component/channelComponent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/base/allbase.iml" filepath="$PROJECT_DIR$/base/allbase.iml" />
+      <module fileurl="file://$PROJECT_DIR$/channel-component/channelcomponent.iml" filepath="$PROJECT_DIR$/channel-component/channelcomponent.iml" />
       <module fileurl="file://$PROJECT_DIR$/channel-wrapper/channelwrapper.iml" filepath="$PROJECT_DIR$/channel-wrapper/channelwrapper.iml" />
       <module fileurl="file://$PROJECT_DIR$/http-protocol/httpprotocol.iml" filepath="$PROJECT_DIR$/http-protocol/httpprotocol.iml" />
       <module fileurl="file://$PROJECT_DIR$/servlet-impl/servletimpl.iml" filepath="$PROJECT_DIR$/servlet-impl/servletimpl.iml" />

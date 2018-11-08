@@ -9,14 +9,13 @@
     <artifactId>socketchannel</artifactId>
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
-    <name>channel-main</name>
-
 
     <modules>
         <module>channel-component</module>
         <module>channel-wrapper</module>
         <module>http-protocol</module>
         <module>servlet-impl</module>
+        <module>base</module>
     </modules>
 
     <dependencies>
