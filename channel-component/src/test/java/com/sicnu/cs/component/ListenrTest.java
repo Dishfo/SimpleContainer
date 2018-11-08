@@ -35,13 +35,16 @@ public class ListenrTest {
 
         context=new SimpleContext("/home/dishfo/mydata/IdeaProjects" +
                 "/servlettest/out/artifacts/servlettest_Web_exploded","/test");
-        host.addChild(context);
+        host.addContext(context);
+
         ClassFinder finder=new
                 ClassFinderImpl(ContextClassLoader.getClassLoader("/home/dishfo/mydata/IdeaProjects/servlettest/out/" +
                 "artifacts/servlettest_Web_exploded/WEB-INF/classes"));
         context.init();
+
         HashMap<String,WebFilter> foundedfileter=new HashMap<>();
         List<Class> cls=finder.find("/home/dishfo/mydata/IdeaProjects/servlettest/target/classes");
+
         for (Class c:cls){
             if (HttpServlet.class.isAssignableFrom(c)){
                 WebServlet servlet= (WebServlet) c.getAnnotation(WebServlet.class);
@@ -64,7 +67,6 @@ public class ListenrTest {
                 FilterRegistration.Dynamic dynamic=
                         context.addFilter(filter.filterName(),c);
                 foundedfileter.putIfAbsent(filter.filterName(),filter);
-                ;
             }
         }
 
@@ -81,8 +83,6 @@ public class ListenrTest {
         listener.setChannelListener(new TestWrapperListener());
         engine.start();
         listener.startListen();
-
-
     }
 
 
