@@ -4,6 +4,7 @@ import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.HttpPair;
 import com.sicnu.cs.servlet.basis.ServletPosition;
 import com.sicnu.cs.servlet.basis.map.ServletSearch;
+import com.sicnu.cs.servlet.init.ClassesTransfer;
 
 import javax.servlet.ServletContext;
 import java.net.InetAddress;
@@ -15,8 +16,10 @@ public class SimpleHost extends DispatchContainer implements Host{
 
     private List<InetAddress> vaildAddress;
     private HashMap<String,ServletContext> contextHashMap;
+    private ClassesTransfer transfer;
 
     public SimpleHost() {
+        transfer=new ClassesTransfer();
         contextHashMap=new HashMap<>();
         vaildAddress=new ArrayList<>();
     }
@@ -41,6 +44,12 @@ public class SimpleHost extends DispatchContainer implements Host{
         contextHashMap.putIfAbsent(context.getContextPath(),context);
     }
 
+    @Override
+    protected void startInteral() {
+        contextHashMap.forEach((s, servletContext) -> {
+            transfer.findClass((SimpleContext) servletContext);
+        });
+    }
 
     @Override
     protected void dispatch(HttpPair pair, ServletSearch search) {

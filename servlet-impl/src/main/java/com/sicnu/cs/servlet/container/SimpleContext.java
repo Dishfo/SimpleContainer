@@ -106,6 +106,9 @@ public class SimpleContext extends BaseContext {
     public String getWebxml() {
         return webxml;
     }
+    public String getClasspath() {
+        return classpath;
+    }
 
     private void vertifyFilePath() {
         String filepath = basePath.endsWith(File.separator) ?

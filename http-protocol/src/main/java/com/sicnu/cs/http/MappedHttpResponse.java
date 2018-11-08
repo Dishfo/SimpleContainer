@@ -155,6 +155,7 @@ public class MappedHttpResponse implements HttpResponse {
                     EncodingUtil.encoding(oriBody.toByteArray()
                             ,encoding);
 
+            setHeader(HttpHeadConstant.H_CONT_LEN,body.length+"");
 
             if (body.length>Http11Constant.CONTENT_MAX_SIZE){
                 throw new IllegalArgumentException(" len of  response body is too long");

@@ -1,4 +1,4 @@
-package com.sicnu.cs.servlet.basis;
+package com.sicnu.cs.servlet.init;
 
 import java.util.List;
 
