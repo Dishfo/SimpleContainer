@@ -233,6 +233,7 @@ public class SocketChannelWrapper implements ChannelWrapper{
             return;
         }
 
+        removeOps(SelectionKey.OP_READ);
         towrite.add(posion);
         ByteBuffer buffer=null;
         while (buffer!=posion){
@@ -243,7 +244,6 @@ public class SocketChannelWrapper implements ChannelWrapper{
                 break;
             }
         }
-
         key.cancel();
         try {
             channel.close();

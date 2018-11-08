@@ -87,7 +87,7 @@ public class InteralHttpServletRequest implements HttpServletRequest {
 
     public void parseCookie(){
         Map<String,String> map=new CookieParse().parse(this);
-        cookies=CookFactory.create(map);
+        cookies= CookieFactory.create(map);
     }
 
     public void parsePart(){

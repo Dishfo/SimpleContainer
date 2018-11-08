@@ -2,6 +2,7 @@ package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.*;
+import com.sicnu.cs.servlet.basis.map.ServletSearch;
 import com.sicnu.cs.servlet.http.*;
 import com.sicnu.cs.servlet.intefun.ConnectionFilter;
 import com.sicnu.cs.servlet.intefun.ExpiresSessionFilter;
@@ -15,9 +16,7 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -38,6 +37,7 @@ public class SimpleContext extends BaseContext {
     private ContextClassLoader contextClassLoader;
     private List<Filter> interalFilters;
     private SessionManager manager;
+    private ThreadLocal<HandleList> handleListThreadLocal;
 
     private int sessionTime=3000;
 
@@ -54,6 +54,7 @@ public class SimpleContext extends BaseContext {
         interalFilters=new ArrayList<>();
         manager=new SessionManager(this,100);
         vertifyFilePath();
+        handleListThreadLocal=new InheritableThreadLocal<>();
         contextClassLoader=ContextClassLoader.getClassLoader(classpath);
         loadInteral();
     }
@@ -75,38 +76,27 @@ public class SimpleContext extends BaseContext {
             if (!v.isAvailable()){
                 try {
                     if (v.isLoadOnStart()) {
-                        v.init(generateServletConfig(k));
+                        v.initServlet();
                     }
-                } catch (ServletException ignored) {
-
-                }
+                } catch (ServletException ignored) {}
             }
         });
 
         filters.forEach((k,v)->{
             if (v.isAvailable()){
                 try {
-                    v.init(generateFilterConfig(k));
-                } catch (ServletException ignored) {
-
-                }
+                    v.initFilter();
+                } catch (ServletException ignored) {}
             }
         });
     }
 
-    private FilterConfig generateFilterConfig(String name){
-        SimpleFilterWrapper wrapper=filters.get(name);
-        return new FilterConfigFaced(this,wrapper);
-    }
-
-
-    private ServletConfig generateServletConfig(String name){
-        SimpleServletWrapper wrapper=servlets.get(name);
-        return new ServletConfigFaced(this,wrapper);
-    }
-
     private String classpath;
     private String webxml;
+
+    public String getWebxml() {
+        return webxml;
+    }
 
     private void vertifyFilePath() {
         String filepath = basePath.endsWith(File.separator) ?
@@ -348,7 +338,6 @@ public class SimpleContext extends BaseContext {
         return null;
     }
 
-
     private <T extends Servlet> String getServletName(Class<T> clazz) throws ServletException {
         String name;
         WebServlet webServlet = clazz.getAnnotation(WebServlet.class);
@@ -358,8 +347,6 @@ public class SimpleContext extends BaseContext {
         }
         return name;
     }
-
-
 
     @Override
     public ServletRegistration getServletRegistration(String servletName) {
@@ -388,6 +375,7 @@ public class SimpleContext extends BaseContext {
     public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
         SimpleFilterWrapper wrapper=new SimpleFilterWrapper(filter,filterName,new InteralServletAcess());
         if (filters.putIfAbsent(filterName,wrapper)==null){
+            addChild(wrapper);
             return wrapper;
         }
         return null;
@@ -519,92 +507,141 @@ public class SimpleContext extends BaseContext {
     }
 
     @Override
-    protected void process(HttpPair pair, ServletPosition position) {
-        HttpServletRequest servletRequest=createHttpRequset(pair,position);
-        HttpServletResponse servletResponse=createHttpResponse(pair,position);
-        Throwable t=null;
+    protected void dispatch(HttpPair pair, ServletSearch search) {
+        HttpServletRequest servletRequest=createHttpRequset(pair,search);
+        HttpServletResponse servletResponse=createHttpResponse(pair);
 
-        InteralFilterChain interalFun=new InteralFilterChain(interalFilters);
-        InteralFilterChain filterChain=new InteralFilterChain(filters.values());
-
-        try {
-            interalFun.doFilter(servletRequest,servletResponse);
-        } catch (IOException | ServletException ignored) {}
-
-        try {
-            filterChain.doFilter(servletRequest,servletResponse);
-        } catch (Throwable throwable){
-            t=throwable;
+        HandleList handleList=handleListThreadLocal.get();
+        if (handleList==null){
+            handleListThreadLocal.set(new HandlelistFactory().createHandleList());
+            handleList=handleListThreadLocal.get();
         }
 
-        SimpleServletWrapper wrapper=
-                servlets.get(position.getServletName());
+        handleList.nextNode(servletRequest,servletResponse);
 
-        if (t!=null){
-            errorHandle(t,servletRequest,servletResponse);
-        }
-
-        if (wrapper==null){
-            servletResponse.setStatus(404);
-        }else {
-            try {
-                if (!wrapper.isAvailable()){
-                    wrapper.init(generateServletConfig(position.getServletName()));
-                }
-                wrapper.service(servletRequest,servletResponse);
-            } catch (Throwable throwable){
-                t=throwable;
-            }
-        }
-
-        if (t!=null){
-            errorHandle(t,servletRequest,servletResponse);
-        }else if (servletRequest.getDispatcherType()==DispatcherType.ASYNC){
-            asyncHanlde(pair,servletRequest,servletResponse);
-        }else {
-            competeHandle(pair,servletRequest,servletResponse);
-        }
     }
 
-    private void asyncHanlde(HttpPair pair,HttpServletRequest request,HttpServletResponse response){
-        if(response.isCommitted()){
-            return;
-        }
+    private InteralFilterChain createInterChain(){
+        return new InteralFilterChain(interalFilters);
     }
 
-    private void errorHandle(Throwable t,HttpServletRequest request,HttpServletResponse response){
-        if(response.isCommitted()){
-            return;
-        }
-        try {
-            response.getWriter().write(t.toString());
-            response.sendError(500);
-        } catch (IOException ignored) {}
+    private InteralFilterChain createUserChain(){
+        return new InteralFilterChain(filters.values());
     }
 
-    private void competeHandle(HttpPair pair,HttpServletRequest request,HttpServletResponse response){
-        if(response.isCommitted()){
-            return;
-        }
-        try {response.flushBuffer();} catch (IOException ignored) {}
-        try {pair.commitResponse();} catch (IOException ignored) {}
-    }
-
-    private HttpServletRequest createHttpRequset(HttpPair pair,ServletPosition position){
+    private HttpServletRequest createHttpRequset(HttpPair pair,ServletSearch search){
         InteralHttpServletRequest request=
                 new InteralHttpServletRequest(pair,this);
-
+        HttpServletMapping mapping=
+                new HttpServletMapping(search.getMatchValue(),
+                        search.getMatchUrl(),search.getServletName(),
+                        search.getMappingMatch());
         request.parseParameters();
         request.parseCookie();
         request.setSessionAcess(manager);
-        request.setServletMapping(null);
-
+        request.setServletMapping(mapping);
         return request;
     }
 
-    private HttpServletResponse createHttpResponse(HttpPair pair,ServletPosition position){
+    private HttpServletResponse createHttpResponse(HttpPair pair){
         return new InteralHttpServletResponse(pair,this);
     }
+
+    @Override
+    public void setParent(Container container) {
+        if (!(container instanceof Host)){
+            throw new IllegalArgumentException(" context's parent must be host");
+        }
+        super.setParent(container);
+    }
+
+    private class InteralHandleList extends BaseHandleList{
+
+        @Override
+        public void end(HttpServletRequest req, HttpServletResponse resp) {
+            super.end(req, resp);
+            if (resp.isCommitted()){
+                try {resp.flushBuffer();} catch (IOException ignored) {}
+            }
+        }
+
+        @Override
+        public void exception(HttpServletRequest req, HttpServletResponse resp, Throwable throwable) {
+            super.exception(req, resp, throwable);
+            if (resp.isCommitted()){
+                return;
+            }
+            PrintWriter writer;
+            try {writer=resp.getWriter();} catch (IOException e) {return;}
+            StackTraceElement[] elements=throwable.getStackTrace();
+
+            for (StackTraceElement element:elements){
+                writer.println(element.toString());
+            }
+        }
+
+        public void refresh(){
+
+        }
+
+        public boolean isNeedRefresh(){
+            return false;
+        }
+
+        void addNode(HandleNode node){
+            nodes.add(node);
+        }
+
+    }
+
+    private class HandlelistFactory {
+
+        InteralHandleList createHandleList(){
+            InteralHandleList list=new InteralHandleList();
+            list.addNode(new InteralFilterNode());
+            list.addNode(new UserFilterNode());
+            list.addNode(new ServletNode());
+
+            return list;
+        }
+    }
+
+    private class InteralFilterNode extends BaseHandleNode{
+        @Override
+        public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
+            InteralFilterChain chain=createInterChain();
+            chain.doFilter(req,resp);
+            through=chain.isThrough();
+        }
+    }
+
+    private class UserFilterNode extends BaseHandleNode{
+        @Override
+        public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
+            InteralFilterChain chain=createUserChain();
+            chain.doFilter(req,resp);
+            through=chain.isThrough();
+        }
+    }
+
+    private class ServletNode extends BaseHandleNode{
+
+        @Override
+        public void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception{
+            String name=req.getHttpServletMapping().getServletName();
+            SimpleServletWrapper wrapper=servlets.get(name);
+            if (!wrapper.isAvailable()){
+                wrapper.initServlet();
+                if (!wrapper.isAvailable()){
+                    throw new IllegalAccessException();
+                }
+            }
+
+            wrapper.service(req,resp);
+
+        }
+    }
+
 
     private class InteralServletAcess implements ServletAccess {
         @Override
@@ -616,22 +653,13 @@ public class SimpleContext extends BaseContext {
             }
             return urls;
         }
-
         @Override
         public String getContexPath() {
             return contextPath;
         }
     }
 
-    @Override
-    public void setParent(Container container) {
-        if (!(container instanceof Host)){
-            throw new IllegalArgumentException(" context's parent must be host");
-        }
-        super.setParent(container);
-    }
-
-    private class InteralFilterChain implements FilterChain{
+    private class InteralFilterChain extends FeedBackFilterChain{
         private int cur;
         private int size;
         private Filter[] wrappers;
@@ -645,6 +673,7 @@ public class SimpleContext extends BaseContext {
         @Override
         public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
             if (cur>=size){
+                all=true;
                 return;
             }
             wrappers[cur++].doFilter(request,response,this);

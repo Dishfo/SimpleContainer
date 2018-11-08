@@ -3,6 +3,7 @@ package com.sicnu.cs.servlet.container;
 import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.RequestChannel;
 import com.sicnu.cs.servlet.basis.ServletPosition;
+import com.sicnu.cs.servlet.http.ServletConfigFaced;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -42,6 +43,12 @@ public class SimpleServletWrapper extends
     }
 
     @Override
+    protected void startInteral() {
+        super.startInteral();
+        registerUrl(urls.toArray(new String[]{}));
+    }
+
+    @Override
     public synchronized void init(ServletConfig config) throws ServletException {
         if (isinited.get()==2||real==null){
             throw new ServletException("this servlet is not " +
@@ -56,6 +63,20 @@ public class SimpleServletWrapper extends
         real.init(config);
 
         isinited.set(1);
+    }
+
+    void initServlet()throws ServletException{
+        if (isinited.compareAndSet(0,1)){
+            Container context=  getParent();
+
+            if (!(context instanceof ServletContext)){
+                throw new ServletException("this servlet is not in web container ");
+            }
+
+            config=new ServletConfigFaced((ServletContext) context,
+                    this);
+            init(config);
+        }
     }
 
     @Override
@@ -84,7 +105,7 @@ public class SimpleServletWrapper extends
 
     @Override
     public String getServletInfo() {
-        if (isAvailable()){
+        if (!isAvailable()){
             return " ";
         }
         return config.getServletName()+" in "+
@@ -136,8 +157,6 @@ public class SimpleServletWrapper extends
                 urls.add(s);
             }
         }
-
-        registerUrl(tmp.toArray(new String[]{}));
         return confilct;
     }
 
@@ -157,13 +176,6 @@ public class SimpleServletWrapper extends
         }
 
         urls.add(url);
-        registerUrl(url);
-    }
-
-    private void registerUrl(String url){
-        ServletPosition position=new ServletPosition();
-        position.setServletName(getName());
-        onRegister(new String[]{url},position);
     }
 
     private void registerUrl(String[] urls){

@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public  class CookFactory {
+public  class CookieFactory {
 
     private static List<Cookie> create(Map<String, String> cookMap, SessionCookieConfig cookieConfig){
         List<Cookie> cookies=new ArrayList<>();

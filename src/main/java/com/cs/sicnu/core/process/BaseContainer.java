@@ -28,13 +28,13 @@ public abstract class BaseContainer implements Container {
             for (Container c : children) {
                 try {
                     c.init();
-                    if (c.getLifeState() != inited
+                    if (c.getLifeState() > initfail
                             && needAllCompete()) {
                         lifestate = initfail;
                         return;
                     }
                 } catch (Throwable t) {
-                    if (c.getLifeState() != inited) {
+                    if (c.getLifeState() >=initfail ) {
                         lifestate = initfail;
                         return;
                     }

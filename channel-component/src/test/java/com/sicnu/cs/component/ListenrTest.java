@@ -79,6 +79,7 @@ public class ListenrTest {
 
         MessageListener listener=new MessageListener(8080);
         listener.setChannelListener(new TestWrapperListener());
+        engine.start();
         listener.startListen();
 
 

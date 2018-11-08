@@ -22,5 +22,6 @@ public class ExpiresSessionFilter extends InteralFilter{
         if (expires!=null){
             manager.removeSession(expires);
         }
+        super.doFilter(req,resp,chain);
     }
 }

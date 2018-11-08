@@ -1,6 +1,8 @@
 package com.sicnu.cs.servlet.container;
 
+import com.cs.sicnu.core.process.Container;
 import com.sicnu.cs.servlet.basis.ServletAccess;
+import com.sicnu.cs.servlet.http.FilterConfigFaced;
 
 import javax.servlet.*;
 import java.io.IOException;
@@ -80,6 +82,20 @@ public class SimpleFilterWrapper extends RegistraContainer implements Filter,Fil
                 addMappingForUrlPatterns(null,
                         false,contextPath+s);
             }
+        }
+    }
+
+    void initFilter()throws ServletException{
+        if (isinited.compareAndSet(0,1)){
+            Container context=  getParent();
+
+            if (!(context instanceof ServletContext)){
+                throw new ServletException("this servlet is not in web container ");
+            }
+
+            config=new FilterConfigFaced((ServletContext) context,
+                    this);
+            init(config);
         }
     }
 

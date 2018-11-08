@@ -5,11 +5,9 @@ import com.sicnu.cs.servlet.basis.HttpPair;
 
 import javax.servlet.ServletContext;
 
-abstract class BaseContext extends RegisterContainer implements ServletContext {
+abstract class BaseContext extends DispatchContainer implements ServletContext {
 
-    protected void process(HttpPair pair, ServletPosition position){
 
-    }
 }
 
 

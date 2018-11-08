@@ -1,17 +1,17 @@
 package com.sicnu.cs.servlet.container;
 
 import com.cs.sicnu.core.process.Container;
-import com.sicnu.cs.servlet.basis.ServletPosition;
 import com.sicnu.cs.servlet.basis.HttpPair;
+import com.sicnu.cs.servlet.basis.ServletPosition;
+import com.sicnu.cs.servlet.basis.map.ServletSearch;
 
 import javax.servlet.ServletContext;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class SimpleHost extends RegisterContainer implements Host{
+public class SimpleHost extends DispatchContainer implements Host{
 
     private List<InetAddress> vaildAddress;
     private HashMap<String,ServletContext> contextHashMap;
@@ -32,19 +32,8 @@ public class SimpleHost extends RegisterContainer implements Host{
     }
 
     @Override
-    public ServletContext findContext(String uripath) {
-        List<ServletContext> result=new ArrayList<>();
-        Container[] childern=getChilds();
-
-        for (Container c:childern){
-            if (c instanceof ServletContext){
-                if (uripath.equals(((ServletContext) c).getContextPath())){
-                    result.add((ServletContext) c);
-                }
-            }
-        }
-
-        return result.size()==0?null:result.get(0);
+    public ServletContext findContext(String contextpath) {
+        return contextHashMap.get(contextpath);
     }
 
     @Override
@@ -52,16 +41,15 @@ public class SimpleHost extends RegisterContainer implements Host{
         contextHashMap.putIfAbsent(context.getContextPath(),context);
     }
 
+
     @Override
-    public void handleHttp(HttpPair pair, ServletPosition position) {
-        ServletContext context=findContext(position.getContextPath());
+    protected void dispatch(HttpPair pair, ServletSearch search) {
+        ServletContext context=findContext(search.getContextPath());
         if (context!=null){
-            if (context instanceof BaseContext){
-                ((BaseContext) context).process(pair,position);
-            }
+            BaseContext bctx= (BaseContext) context;
+            bctx.dispatch(pair,search);
         }else {
-            pair.setStatus(404);
-            try {pair.commitResponse();} catch (IOException ignored) {}
+            pair.setStatus(503);
         }
     }
 
@@ -71,6 +59,15 @@ public class SimpleHost extends RegisterContainer implements Host{
             throw new IllegalArgumentException("host parent must be engine");
         }
         super.setParent(container);
+    }
+
+    @Override
+    public void addChild(Container container) {
+        super.addChild(container);
+        if (container instanceof ServletContext){
+            ServletContext ctx= (ServletContext) container;
+            addContext(ctx);
+        }
     }
 
     @Override

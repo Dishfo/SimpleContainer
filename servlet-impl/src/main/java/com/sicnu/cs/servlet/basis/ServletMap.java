@@ -34,23 +34,16 @@ public class ServletMap {
         acess.add(rootNode,position,url);
     }
 
-    public ServletPosition findServlet(URI uri){
+    public ServletSearch findServlet(URI uri){
         if (uri==null){
             return null;
         }
         try {
             ServletSearch servletSearch=acess.find(rootNode,uri.toURL());
-            if (servletSearch.isFound()) {
-                ServletPosition position=new ServletPosition();
-                position.setServletName(servletSearch.getServletName());
-                position.setContextPath(servletSearch.getContextPath());
-                position.addHost(servletSearch.getHost());
-                return position;
-            }
+            return servletSearch;
         } catch (MalformedURLException e) {
             return null;
         }
-        return null;
     }
 
 

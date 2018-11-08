@@ -3,16 +3,14 @@ package com.sicnu.cs.servlet.basis;
 import com.sicnu.cs.http.HttpConnection;
 import com.sicnu.cs.http.HttpRequest;
 import com.sicnu.cs.http.HttpResponse;
-import com.sicnu.cs.servlet.http.CookFactory;
+import com.sicnu.cs.servlet.http.CookieFactory;
 
 import javax.servlet.http.Cookie;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +128,7 @@ public class HttpPair {
         if (committed.compareAndSet(false,true)){
             if (cookies!=null){
                 for (Cookie c:cookies){
-                    response.addCookie(CookFactory.resolve(c));
+                    response.addCookie(CookieFactory.resolve(c));
                 }
             }
             response.outPut();

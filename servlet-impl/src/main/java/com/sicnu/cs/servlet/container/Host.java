@@ -19,5 +19,5 @@ public interface Host {
     void addAddress(InetAddress address);
     ServletContext findContext(String uripath);
     void addContext(ServletContext context);
-    void handleHttp(HttpPair pair, ServletPosition position);
+
 }
