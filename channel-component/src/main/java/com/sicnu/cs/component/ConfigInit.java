@@ -5,6 +5,8 @@ import com.sicnu.cs.servlet.container.Engine;
 import com.sicnu.cs.servlet.container.SimpleContext;
 import com.sicnu.cs.servlet.container.SimpleHost;
 import com.sicnu.cs.servlet.init.ClassesTransfer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -25,7 +27,7 @@ import java.util.*;
  *
  */
 class ConfigInit {
-
+    private Logger logger= LogManager.getLogger(getClass().getName());
     private BaseEngine engine;
     private MessageListener listener;
     private ClassesTransfer transfer;
@@ -35,21 +37,23 @@ class ConfigInit {
     }
 
     void config(String path){
-
+        logger.debug("start load config");
         SAXBuilder builder = new SAXBuilder();
         Document doc;
         try {
             doc = builder.build(new File(path));
         } catch (JDOMException | IOException e) {
+            logger.error(e.toString());
             return;
         }
         Element tutorials = doc.getRootElement();
         Element eport=tutorials.getChild("port");
-
+        logger.debug("listen port "+eport.getValue());
         listener=new MessageListener(Integer.parseInt(eport.getValue()));
         Element eWeb=tutorials.getChild("Web");
 
         if (eWeb!=null){
+            logger.debug("find engine");
             engine=new BaseEngine();
         }else {
             return;
@@ -62,6 +66,7 @@ class ConfigInit {
                 SimpleHost host=new SimpleHost();
                 List<InetAddress> ips=parseIp(eadr);
                 for (InetAddress address:ips){
+                    logger.debug("host address is"+address.toString());
                     host.addAddress(address);
                 }
                 List<Element> ectxs=e.getChildren("context");
@@ -83,6 +88,7 @@ class ConfigInit {
             String basePath;
             contexpath=e.getChild("contextPath").getValue();
             basePath=e.getChild("basePath").getValue();
+            logger.debug("context "+contexpath+ " "+basePath);
             SimpleContext context=new SimpleContext(basePath,contexpath);
             contextHashMap.put(contexpath,context);
         }

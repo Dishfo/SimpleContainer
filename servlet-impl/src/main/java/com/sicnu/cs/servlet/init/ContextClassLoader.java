@@ -1,6 +1,8 @@
-package com.sicnu.cs.servlet.container;
+package com.sicnu.cs.servlet.init;
 
 import com.cs.sicnu.core.utils.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -9,16 +11,20 @@ import java.util.HashMap;
 
 public class ContextClassLoader extends ClassLoader{
     private String basePath;
+    private Logger logger= LogManager.getLogger(getClass().getName());
 
     public ContextClassLoader(ClassLoader parent, String basePath) {
         super(parent);
         this.basePath = basePath;
+        logger.debug("class loader base path is "+basePath);
     }
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         byte[] bytes=findData(name);
+        logger.debug("to find class "+name);
         if (bytes!=null){
+            logger.debug("find class "+name);
             return defineClass(name,bytes,0,bytes.length);
         }else {
             throw new ClassNotFoundException(" class Name is "+name);

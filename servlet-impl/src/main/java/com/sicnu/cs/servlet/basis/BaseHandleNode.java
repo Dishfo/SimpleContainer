@@ -14,6 +14,10 @@ public abstract class BaseHandleNode implements BaseHandleList.HandleNode {
 
     public abstract void refresh();
 
+    public  void reset(){
+        through=false;
+    }
+
     @Override
     public abstract void handle(HttpServletRequest req, HttpServletResponse resp) throws Exception;
 }

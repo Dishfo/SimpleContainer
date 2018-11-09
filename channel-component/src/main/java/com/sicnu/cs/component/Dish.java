@@ -10,6 +10,7 @@ import com.sicnu.cs.wrapper.WrappersListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -24,11 +25,14 @@ public class Dish {
 
     public void start() {
         String config = System.getenv("DISH_BASE_CONFIG");
+        logger.debug("config in "+config);
         if (StringUtils.isEmpty(config)) {
             return;
         } else {
             init = new ConfigInit();
-            init.config(config);
+            File file=new File(config);
+            logger.debug(file.getAbsolutePath());
+            init.config(file.getAbsolutePath());
             listener = init.getListener();
             engine = init.getEngine();
             Objects.requireNonNull(listener);

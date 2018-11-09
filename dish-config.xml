@@ -6,7 +6,7 @@
     <Host>
       <address>ANY_LOCAL</address>  <!--host ip 设置-->
       <context>
-        <contextPath>/test</contextPath> 
+        <contextPath>/test</contextPath>
         <basePath>/home/dishfo/mydata/IdeaProjects/servlettest/out/artifacts/servlettest_Web_exploded</basePath>
       </context>
     </Host>

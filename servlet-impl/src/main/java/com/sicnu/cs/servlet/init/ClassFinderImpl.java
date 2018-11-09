@@ -1,5 +1,8 @@
 package com.sicnu.cs.servlet.init;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpFilter;
@@ -12,6 +15,7 @@ import java.util.concurrent.*;
 
 public class ClassFinderImpl implements ClassFinder {
 
+    private Logger logger= LogManager.getLogger(getClass().getName());
     private ClassLoader classLoader;
     private Executor executor;
     private List<ClassFilter> filters;
@@ -47,8 +51,16 @@ public class ClassFinderImpl implements ClassFinder {
     public synchronized List<Class> find(String path) {
         executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         classpath=path;
+        File clsfile=new File(classpath);
+        if (!clsfile.exists()){
+            return new ArrayList<>();
+        }else {
+            classpath=clsfile.getAbsolutePath();
+        }
+
+        logger.debug("start find "+path);
         List<Class> res = new ArrayList<>();
-        List<Class> futures = findInteral(path);
+        List<Class> futures = findInteral(classpath);
         for (Class c : futures) {
             if (c != null) {
                 res.add(c);
@@ -60,6 +72,8 @@ public class ClassFinderImpl implements ClassFinder {
     private List<Class> findInteral(String path) {
         List<Class> res = new ArrayList<>();
         File file=new File(path);
+        logger.debug("want to find file is "+file.getAbsolutePath()+file.exists());
+        logger.debug("is file ?"+file.isFile());
         if (file.exists()){
             if (file.isDirectory()){
                 List<Future<List<Class>>> classes
@@ -84,6 +98,7 @@ public class ClassFinderImpl implements ClassFinder {
 
             }else if (file.isFile()){
                 try {
+                    logger .debug("a file named "+file.getAbsolutePath());
                     Class cls = classLoader.loadClass(getClassName(file.getAbsolutePath(),
                             classpath));
 
@@ -92,13 +107,16 @@ public class ClassFinderImpl implements ClassFinder {
                             res.add(cls);
                         }
                     }
-                } catch (ClassNotFoundException ignored) {}
+                } catch (ClassNotFoundException e) {
+                    logger.error(e.toString());
+                }
             }
         }
         return res;
     }
 
     private String getClassName(String file, String base) {
+
         if (file.startsWith(base)&&file.endsWith(CLASS_SUFFIX)){
             String className=file.substring(base.length(),file.length() - CLASS_SUFFIX.length());
             if (className.startsWith("/")){

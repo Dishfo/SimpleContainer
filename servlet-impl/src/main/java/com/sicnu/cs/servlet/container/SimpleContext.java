@@ -6,6 +6,7 @@ import com.sicnu.cs.servlet.basis.map.ServletSearch;
 import com.sicnu.cs.servlet.http.InteralHttpServletRequest;
 import com.sicnu.cs.servlet.http.InteralHttpServletResponse;
 import com.sicnu.cs.servlet.http.SessionManager;
+import com.sicnu.cs.servlet.init.ContextClassLoader;
 import com.sicnu.cs.servlet.intefun.ConnectionFilter;
 import com.sicnu.cs.servlet.intefun.ExpiresSessionFilter;
 import com.sicnu.cs.servlet.intefun.SessionFilter;
@@ -591,6 +592,11 @@ public class SimpleContext extends BaseContext {
 
         void reset(){
             cur=0;
+            for(HandleNode node:nodes){
+                if (node instanceof BaseHandleNode){
+                    ((BaseHandleNode) node).reset();
+                }
+            }
         }
 
         @Override
